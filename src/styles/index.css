@@ -37,9 +37,12 @@ body {
   font-variant-numeric: tabular-nums;
   overflow: hidden;
 }
-button, input, select, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
-button:disabled { cursor: not-allowed; }
+/* In a layer so Tailwind utilities (text-on-primary, text-muted ...) win over these resets. */
+@layer base {
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+}
 
 ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 input, textarea { caret-color: var(--accent-text); }

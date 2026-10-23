@@ -646,6 +646,9 @@ export function createMockBackend(options: MockOptions = {}) {
     setSaveDelay(ms) {
       saveDelay = ms;
     },
+    idOf(displayName) {
+      return registry.find((d) => d.displayName === displayName)?.id;
+    },
     reset() {
       registry = [];
       disks.clear();

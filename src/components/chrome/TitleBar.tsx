@@ -15,9 +15,8 @@ export function TitleBar() {
       </IconButton>
       <span className="text-[1.0625rem] font-semibold tracking-tight">ConfigDeck</span>
       <div className="mx-auto w-full max-w-xl">
-        <button
+        {active ? <button
           type="button"
-          disabled={!active}
           onClick={() => openDialog({ kind: "command" })}
           className="flex h-9 w-full items-center gap-2 rounded-md border border-ctl px-3 text-left text-[0.9375rem] text-muted hover:bg-hover disabled:opacity-60"
           aria-label="Search settings in this file"
@@ -26,7 +25,7 @@ export function TitleBar() {
           <Search className="size-4" aria-hidden />
           <span className="flex-1 truncate">Search settings in this file</span>
           <kbd className="mono text-[0.8125rem]">{formatKeys("Mod+K")}</kbd>
-        </button>
+        </button> : null}
       </div>
       <IconButton label="Settings" className="border-transparent" onClick={() => openDialog({ kind: "settings" })}>
         <Settings className="size-5" aria-hidden />

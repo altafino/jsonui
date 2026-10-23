@@ -65,7 +65,7 @@ export function FileRow({ file, rail }: { file: ManagedDocument; rail: boolean }
           >
             <span className="relative shrink-0">
               <Icon className="size-[1.125rem] text-muted" aria-hidden />
-              {rail && (dirty || state) ? <span className="absolute -right-1 -top-1">{dirty ? <ChangedDot /> : state?.icon}</span> : null}
+              {rail && (dirty || state) ? <span className="absolute -right-1.5 -top-1.5 grid place-items-center rounded-full bg-sidebar [&_svg]:size-3">{dirty ? <ChangedDot /> : state?.icon}</span> : null}
             </span>
             {!rail ? (
               <>

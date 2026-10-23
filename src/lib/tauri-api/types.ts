@@ -83,6 +83,8 @@ export interface MockControls {
   simulateMissing(fileId: string): void;
   simulateSaveFailure(code: CoreError["code"] | null): void;
   setSaveDelay(ms: number): void;
+  /** Registry id of a file by display name (tests only). */
+  idOf(displayName: string): string | undefined;
   reset(): void;
 }
 

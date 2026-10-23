@@ -71,7 +71,7 @@ export default function App() {
             {!ready ? null : files.length === 0 || !active ? files.length === 0 ? <Welcome /> : <div className="grid h-full place-items-center text-muted">Select a file</div> : <DocumentView key={active} fileId={active} />}
           </main>
         </div>
-        <SaveBar />
+        {ready && files.length > 0 && active ? <SaveBar /> : null}
         <DialogHost />
         <LiveRegions />
       </div>
