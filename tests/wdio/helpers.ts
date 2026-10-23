@@ -52,11 +52,34 @@ export const read = (p: string) => readFileSync(p, "utf8");
 
 export const saveStatus = () => $('[data-testid="save-status"]');
 
-/** Mouse path: Add file menu -> "Add JSON file…" -> scripted picker. */
+/** Mouse path from the empty-state welcome screen: "Add JSON file" -> scripted picker. */
 export async function addFileByMouse(path: string) {
   queuePick(path);
-  await $("button=Add file").click();
-  await $('[role="menuitem"]=Add JSON file…').click();
+  // Never create two element queries at once: WebKitWebDriver can hang on concurrent commands.
+  const welcomeShown = async () => await $("button=Add JSON file").isExisting();
+  await browser.waitUntil(async () => (await welcomeShown()) || (await $("button=Add file").isExisting()), { timeoutMsg: "app UI never rendered" });
+  if (await welcomeShown()) {
+    const welcome = $("button=Add JSON file");
+    await welcome.waitForClickable();
+    await welcome.click();
+  } else {
+    // Files already registered: the sidebar "Add file" dropdown.
+    await $("button=Add file").click();
+    await $('[role="menuitem"]=Add JSON file…').click();
+  }
+}
+
+/** Element with ARIA `role` whose accessible name (aria-label or aria-labelledby text) equals `name`. */
+export async function byRole(role: string, name: string) {
+  const find = (r: string, n: string) =>
+    [...document.querySelectorAll<HTMLElement>(r === "textbox" ? `[role="textbox"], input:not([type]), input[type="text"], textarea` : `[role="${r}"]`)].find((e) => {
+      const ids = e.getAttribute("aria-labelledby");
+      const label = ids ? ids.split(" ").map((i) => document.getElementById(i)?.textContent ?? "").join(" ") : (e.getAttribute("aria-label") ?? "");
+      return label.trim() === n;
+    }) ?? null;
+  const el = await browser.execute(find, role, name);
+  if (!el) throw new Error(`no ${role} named ${name}`);
+  return $(el);
 }
 
 /** Waits for the file header to show `name`. */
