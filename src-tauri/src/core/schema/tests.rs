@@ -225,3 +225,21 @@ fn hints_merge_all_of_and_password_format() {
     assert_eq!(h[1].description.as_deref(), Some("B"));
     assert_eq!(h[2].addable_properties, ["a", "b"]);
 }
+
+#[test]
+fn hints_report_value_type_and_required() {
+    let s = compile(
+        json!({"required": ["a"], "properties": {"a": {"type": "boolean"}, "b": {"type": ["null", "integer"]}}}),
+        SchemaOrigin::User,
+    );
+    let h = s.hints(&json!({}), &["/a".into(), "/b".into(), "/c".into()]);
+    assert_eq!(
+        (h[0].value_type.as_deref(), h[0].required),
+        (Some("boolean"), true)
+    );
+    assert_eq!(
+        (h[1].value_type.as_deref(), h[1].required),
+        (Some("integer"), false)
+    );
+    assert_eq!((h[2].value_type.as_deref(), h[2].required), (None, false));
+}

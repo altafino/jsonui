@@ -26,7 +26,7 @@ export function FileRow({ file, rail }: { file: ManagedDocument; rail: boolean }
   const openDialog = useApp((s) => s.openDialog);
   const doc = useDocs((s) => s.docs[file.id]);
   const dirty = (doc?.dirtyCount ?? 0) > 0;
-  const state = stateOf(file, { exists: status?.exists, writable: status?.writable, invalid: !!doc && doc.phase === "ready" && !doc.editable, conflict: !!doc?.conflict });
+  const state = stateOf(file, { exists: status?.exists, writable: status?.writable, invalid: status?.editable === false || (!!doc && doc.phase === "ready" && !doc.editable), conflict: !!doc?.conflict });
   const Icon = file.discoveredScope === "project-local" ? Monitor : FileText;
   const mono = !file.presetId || file.presetId === "feature-flags" ? "mono text-[0.9375rem]" : "";
   const entries = [

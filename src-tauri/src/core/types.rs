@@ -146,6 +146,7 @@ pub enum DraftOp {
 #[ts(export)]
 pub struct EditResult {
     /// Monotonic per open document; tags async schema diagnostics (R14).
+    #[ts(type = "number")]
     pub revision: u64,
     /// Re-rendered nodes (each with children to depth 1). Replace these in
     /// the UI cache; invalidate their descendants.
@@ -211,6 +212,7 @@ pub struct DocumentSnapshot {
     pub file_id: String,
     pub kind: DocKind,
     pub fingerprint: Fingerprint,
+    #[ts(type = "number")]
     pub size_bytes: u64,
     pub has_bom: bool,
     pub line_ending: LineEnding,
@@ -222,6 +224,7 @@ pub struct DocumentSnapshot {
     /// Present when not editable because of a syntax/duplicate error.
     pub source_view: Option<SourceView>,
     pub diagnostics: Vec<Diagnostic>,
+    #[ts(type = "number")]
     pub revision: u64,
     pub dirty_count: u32,
     pub can_undo: bool,
@@ -381,7 +384,10 @@ pub struct FileStatus {
     /// Resolved target when `is_symlink`.
     pub link_target: Option<String>,
     pub hardlink_count: u32,
+    #[ts(type = "number | null")]
     pub size_bytes: Option<u64>,
+    /// Parses as an editable document; `None` when unreadable or too large.
+    pub editable: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -402,6 +408,7 @@ pub struct BackupEntry {
     pub file_id: String,
     /// RFC 3339.
     pub created_at: String,
+    #[ts(type = "number")]
     pub size_bytes: u64,
     pub change_count: Option<u32>,
     pub location: String,
@@ -428,6 +435,10 @@ pub struct DiscoveredCandidate {
 #[ts(export)]
 pub struct FieldHint {
     pub pointer: Pointer,
+    /// JSON Schema `type` (`"boolean"`, `"integer"`, …), first non-null one.
+    pub value_type: Option<String>,
+    /// Listed in the parent's `required`.
+    pub required: bool,
     pub title: Option<String>,
     pub description: Option<String>,
     /// Allowed values as JSON text.

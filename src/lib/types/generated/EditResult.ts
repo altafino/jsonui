@@ -9,7 +9,7 @@ export type EditResult = {
 /**
  * Monotonic per open document; tags async schema diagnostics (R14).
  */
-revision: bigint, 
+revision: number, 
 /**
  * Re-rendered nodes (each with children to depth 1). Replace these in
  * the UI cache; invalidate their descendants.

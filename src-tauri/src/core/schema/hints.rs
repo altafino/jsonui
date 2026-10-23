@@ -92,7 +92,13 @@ pub(super) fn hint_for(root: &Value, instance: &Value, pointer: &str) -> FieldHi
     let mut cands = Vec::new();
     expand(root, root, &mut cands, 0);
     let mut node = Some(instance);
+    let mut required = false;
     for seg in decode_pointer(pointer) {
+        required = cands.iter().any(|s| {
+            s.get("required")
+                .and_then(Value::as_array)
+                .is_some_and(|r| r.iter().any(|k| k.as_str() == Some(seg.as_str())))
+        });
         let next: Vec<&Value> = cands.iter().flat_map(|s| step(s, &seg)).collect();
         cands = Vec::new();
         for s in next {
@@ -139,6 +145,17 @@ pub(super) fn hint_for(root: &Value, instance: &Value, pointer: &str) -> FieldHi
 
     FieldHint {
         pointer: pointer.to_owned(),
+        // The first non-null JSON type, so `["string", "null"]` reads as "string".
+        value_type: cands.iter().find_map(|s| match s.get("type")? {
+            Value::String(t) => Some(t.clone()),
+            Value::Array(ts) => ts
+                .iter()
+                .filter_map(Value::as_str)
+                .find(|t| *t != "null")
+                .map(str::to_owned),
+            _ => None,
+        }),
+        required,
         title: first_text(&cands, "title"),
         description: first_text(&cands, "description"),
         enum_values,

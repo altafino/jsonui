@@ -5,7 +5,7 @@ import type { LineEnding } from "./LineEnding";
 import type { SourceView } from "./SourceView";
 import type { TreeNode } from "./TreeNode";
 
-export type DocumentSnapshot = { fileId: string, kind: DocKind, fingerprint: string, sizeBytes: bigint, hasBom: boolean, lineEnding: LineEnding, 
+export type DocumentSnapshot = { fileId: string, kind: DocKind, fingerprint: string, sizeBytes: number, hasBom: boolean, lineEnding: LineEnding, 
 /**
  * False for invalid syntax, duplicate keys, or other blocking states.
  */
@@ -17,4 +17,4 @@ root: TreeNode | null,
 /**
  * Present when not editable because of a syntax/duplicate error.
  */
-sourceView: SourceView | null, diagnostics: Array<Diagnostic>, revision: bigint, dirtyCount: number, canUndo: boolean, canRedo: boolean, };
+sourceView: SourceView | null, diagnostics: Array<Diagnostic>, revision: number, dirtyCount: number, canUndo: boolean, canRedo: boolean, };
