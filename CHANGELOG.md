@@ -5,6 +5,15 @@ All notable changes to ConfigDeck are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **YAML (`.yaml`, `.yml`) and TOML (`.toml`) files**, edited as forms with the same
+  guarantees as JSON: only the touched value's bytes change, and comments, quoting,
+  ordering and line endings stay as they were. Undo, review, backups, conflict
+  detection and reapply work the same. Every YAML/TOML edit is re-parsed and checked
+  against the expected result before it is accepted. Limits (anchors, multi-document
+  YAML, TOML null and layout cases) are listed in `docs/known-limitations.md`.
+
 ### Fixed
 
 - **Revert no longer offered for edits that a later change depends on through a

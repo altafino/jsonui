@@ -1,8 +1,9 @@
 # ConfigDeck
 
-A local-first desktop editor that turns JSON and JSONC configuration files
-into forms, and saves them without disturbing anything you did not change.
-Claude Code settings are the first built-in preset; any JSON file works.
+A local-first desktop editor that turns JSON, JSONC, YAML and TOML
+configuration files into forms, and saves them without disturbing anything you
+did not change. Claude Code settings are the first built-in preset; any file in
+those formats works, and a JSON Schema can describe any of them.
 
 - **Non-destructive:** edits change only the touched tokens; comments,
   ordering, line endings, BOM and unknown keys are preserved. Opening and
@@ -51,6 +52,10 @@ make bundle   # AppImage + .deb
 `make wdio` drives the real app on a throwaway X display (`xvfb-run`, or `Xvnc`
 when that is missing), so no windows open on your desktop. Plain `pnpm`/`cargo`
 commands still work; the Makefile only wraps them.
+
+Formats plug in behind `core/document/syntax.rs`: a format implements six
+primitive edits on its own lossless tree (`yaml/` on yaml-edit, `toml/` on
+toml_edit), and a shared op layer gives every format the same semantics.
 
 Layout: `src-tauri/src/core/` is the Tauri-free engine (document, patch,
 persistence, backup, registry, schema, presets, security, watcher);
