@@ -2,18 +2,19 @@ import clsx from "clsx";
 import { Redo2, Search, Undo2, X } from "lucide-react";
 import { FIELD_SEARCH_ID } from "../../lib/shortcuts";
 import { drillTarget } from "./drill";
-import { redo, setChangedOnly, setQuery, setShowAdvanced, undo, useDocs } from "../../lib/store/doc-store";
+import { redo, setChangedOnly, setQuery, setSelecting, setShowAdvanced, undo, useDocs } from "../../lib/store/doc-store";
 import { AddSettingMenu } from "../fields/Containers";
 import { FieldEnvContext } from "../fields/context";
 import { IconButton } from "../ui/Button";
 
-function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: string }) {
+function Toggle({ pressed, onClick, children, disabled }: { pressed: boolean; onClick: () => void; children: string; disabled?: boolean }) {
   return (
     <button
       type="button"
       aria-pressed={pressed}
+      disabled={disabled}
       onClick={onClick}
-      className={clsx("h-9 rounded-md border px-3 text-[0.9375rem] hover:bg-hover", pressed ? "border-accent bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-fg" : "border-ctl text-fg")}
+      className={clsx("h-9 rounded-md border px-3 text-[0.9375rem] hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50", pressed ? "border-accent bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-fg" : "border-ctl text-fg")}
     >
       {children}
     </button>
@@ -48,6 +49,7 @@ export function Toolbar({ fileId }: { fileId: string }) {
       </div>
       <Toggle pressed={doc.changedOnly} onClick={() => setChangedOnly(fileId, !doc.changedOnly)}>Changed only</Toggle>
       <Toggle pressed={doc.showAdvanced} onClick={() => setShowAdvanced(fileId, !doc.showAdvanced)}>Show advanced</Toggle>
+      <Toggle pressed={doc.selecting && !frozen} disabled={frozen} onClick={() => setSelecting(fileId, !doc.selecting)}>Select</Toggle>
       <div className="ml-auto flex items-center gap-2">
         {root && !frozen ? (
           <FieldEnvContext.Provider value={{ fileId, frozen, hideSecrets: true, showAdvanced: false, filterActive: false, visible: null }}>

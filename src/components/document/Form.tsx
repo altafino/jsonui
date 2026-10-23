@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import { displayPath, humanize, parentPointer, parsePointer, buildPointer } from "../../lib/json/pointer";
 import { useApp } from "../../lib/store/app-store";
 import { computeVisible } from "../../lib/store/visibility";
-import { drillInto, ensureFullyLoaded, ensureLoaded, patch, setChangedOnly, setQuery, useDocs } from "../../lib/store/doc-store";
+import { drillInto, ensureFullyLoaded, ensureLoaded, patch, setChangedOnly, setQuery, setSelecting, useDocs } from "../../lib/store/doc-store";
 import { ArrayList } from "../fields/ArrayList";
 import { AddSettingMenu, Children } from "../fields/Containers";
 import { FieldEnvContext, useHint, useNode, type FieldEnv } from "../fields/context";
@@ -46,6 +46,9 @@ export function Form({ fileId }: { fileId: string }) {
   const { nodes, hints, query, changedOnly, drillRoot, showAdvanced, presetInfo } = doc;
   const filterActive = query.trim() !== "" || changedOnly;
   const root = nodes[drillRoot] ? drillRoot : "";
+
+  // Selection never outlives the file view it was made in.
+  useEffect(() => () => setSelecting(fileId, false), [fileId]);
 
   useEffect(() => {
     if (filterActive) void ensureFullyLoaded(fileId);

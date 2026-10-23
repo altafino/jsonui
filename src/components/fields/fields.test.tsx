@@ -209,3 +209,66 @@ describe("search and filters", () => {
     expect(screen.queryByRole("switch", { name: "Enabled" })).not.toBeInTheDocument();
   });
 });
+
+describe("removal: visible button, multi-select, protected settings", () => {
+  const flagsReady = async () => {
+    const user = userEvent.setup();
+    await bootApp({ open: "feature-flags.json" });
+    await screen.findByRole("button", { name: "Remove Debug" });
+    return user;
+  };
+
+  it("the visible remove button removes a field", async () => {
+    const user = await flagsReady();
+    await user.click(screen.getByRole("button", { name: "Remove Debug" }));
+    await waitFor(() => expect(doc().nodes["/debug"]).toBeUndefined());
+    expect(doc().dirtyCount).toBe(1);
+  });
+
+  it("has no remove button on absent optional settings", async () => {
+    await flagsReady();
+    await screen.findByRole("radiogroup", { name: "Verbose logging" });
+    expect(screen.queryByRole("button", { name: "Remove Verbose logging" })).toBeNull();
+  });
+
+  it("selection mode removes two fields and a list item in one undo step", async () => {
+    const user = await flagsReady();
+    await user.click(screen.getByRole("button", { name: "Select" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Debug" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Retry count" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Select item 1" })); // features[0]
+    expect(screen.getByText("3 selected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove selected" }));
+    await waitFor(() => expect(doc().nodes["/debug"]).toBeUndefined());
+    expect(doc().nodes["/retryCount"]).toBeUndefined();
+    await waitFor(() => expect(doc().nodes["/features"]?.childCount).toBe(1));
+    expect(doc().selecting).toBe(false);
+    expect(useApp.getState().announcement.polite).toBe("Removed 3 items");
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(doc().nodes["/debug"]).toBeDefined());
+    expect(doc().nodes["/retryCount"]).toBeDefined();
+    expect(doc().nodes["/features"]?.childCount).toBe(2);
+    expect(doc().dirtyCount).toBe(0); // one step restored everything
+    expect(doc().canUndo).toBe(false);
+  });
+
+  it("protected fields show Required and have no remove button or checkbox", async () => {
+    const user = await flagsReady();
+    await waitFor(() => expect(within(row("Application")).getByText("Required")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Remove Application" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Select" }));
+    expect(screen.getByRole("checkbox", { name: "Select Debug" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Select Application" })).toBeNull();
+  });
+
+  it("Esc leaves selection mode", async () => {
+    const user = await flagsReady();
+    await user.click(screen.getByRole("button", { name: "Select" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Debug" }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(doc().selecting).toBe(false));
+    expect(screen.queryByRole("checkbox", { name: "Select Debug" })).toBeNull();
+    expect(doc().selected).toEqual([]);
+  });
+});

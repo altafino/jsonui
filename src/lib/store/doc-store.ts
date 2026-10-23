@@ -43,6 +43,9 @@ export interface DocState {
   query: string;
   changedOnly: boolean;
   showAdvanced: boolean;
+  /** Selection mode for removing several settings at once. */
+  selecting: boolean;
+  selected: string[];
   conflict: boolean;
   save: SaveState;
   opError: CoreError | null;
@@ -55,7 +58,7 @@ export interface DocState {
 const blankDoc = (fileId: string): DocState => ({
   fileId, phase: "loading", loadError: null, kind: "json", fingerprint: "", sizeBytes: 0, editable: false, readOnly: false, sourceView: null,
   syncDiagnostics: [], schemaDiagnostics: [], revision: 0, dirtyCount: 0, canUndo: false, canRedo: false, nodes: {}, fullyLoaded: false,
-  hints: {}, presetInfo: null, expanded: {}, drillRoot: "", focusPointer: null, query: "", changedOnly: false, showAdvanced: false,
+  hints: {}, presetInfo: null, expanded: {}, drillRoot: "", focusPointer: null, query: "", changedOnly: false, showAdvanced: false, selecting: false, selected: [],
   conflict: false, save: { phase: "idle" }, opError: null, changes: [], leftoverTemp: [], externalNote: null,
 });
 
@@ -94,7 +97,7 @@ function fromSnapshot(prev: DocState | undefined, snap: DocumentSnapshot, keepUi
     phase: "ready", loadError: null, kind: snap.kind, fingerprint: snap.fingerprint, sizeBytes: Number(snap.sizeBytes),
     editable: snap.editable, readOnly: snap.readOnly, sourceView: snap.sourceView,
     syncDiagnostics: snap.diagnostics, schemaDiagnostics: [], revision: Number(snap.revision), dirtyCount: snap.dirtyCount,
-    canUndo: snap.canUndo, canRedo: snap.canRedo, nodes, fullyLoaded: false, hints: {}, conflict: false, opError: null, changes: [],
+    canUndo: snap.canUndo, canRedo: snap.canRedo, nodes, fullyLoaded: false, hints: {}, conflict: false, opError: null, changes: [], selecting: false, selected: [],
   };
 }
 
@@ -340,6 +343,7 @@ export const reapply = (fileId: string) => run(fileId, async () => {
 
 export const setValue = (fileId: string, pointer: string, valueJson: string) => applyOp(fileId, { op: "set", path: pointer, valueJson });
 export const addMember = (fileId: string, parent: string, key: string, valueJson: string) => applyOp(fileId, { op: "add", path: childPointer(parent, key), valueJson });
+export const removeDraftItems = (fileId: string, pointers: string[]) => run(fileId, () => api.removeDraftItems(fileId, pointers));
 export const removeAt = (fileId: string, pointer: string) => applyOp(fileId, { op: "remove", path: pointer });
 export const insertItem = (fileId: string, array: string, index: number, valueJson: string) => applyOp(fileId, { op: "array-insert", path: array, index, valueJson });
 export const moveItem = (fileId: string, array: string, from: number, to: number) => applyOp(fileId, { op: "array-move", path: array, from, to });
@@ -359,6 +363,16 @@ export function receiveDiagnostics(fileId: string, revision: number | bigint, di
 
 export const setQuery = (id: string, query: string) => patch(id, { query });
 export const setChangedOnly = (id: string, changedOnly: boolean) => patch(id, { changedOnly });
+export const setSelecting = (id: string, selecting: boolean) => patch(id, { selecting, selected: [] });
+export const toggleSelected = (id: string, pointer: string) =>
+  patch(id, (d) => ({ selected: d.selected.includes(pointer) ? d.selected.filter((p) => p !== pointer) : [...d.selected, pointer] }));
+/** Sends the raw selection; the backend dedupes, drops descendants and orders array removals. */
+export async function removeSelected(fileId: string) {
+  const pointers = getDoc(fileId)?.selected ?? [];
+  if (!pointers.length || !(await removeDraftItems(fileId, pointers))) return;
+  setSelecting(fileId, false);
+  useApp.getState().announce(`Removed ${pointers.length} ${pointers.length === 1 ? "item" : "items"}`);
+}
 export const setShowAdvanced = (id: string, showAdvanced: boolean) => patch(id, { showAdvanced });
 
 export function toggleExpanded(fileId: string, pointer: string, open?: boolean) {
