@@ -1,0 +1,9 @@
+{
+  "model": "example-model-name",
+  "env": {
+    "A": "1",
+    "B": "2",
+    "A": "3"
+  },
+  "model": "other-model-name"
+}
