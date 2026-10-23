@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-sidebar: var(--sidebar);
+  --color-hover: var(--row-hover);
+  --color-line: var(--border);
+  --color-ctl: var(--control-border);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-text);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-danger: var(--error);
+  --color-warn: var(--warning);
+  --color-ok: var(--success);
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html {
+  font-size: calc(16px * var(--font-scale));
+  color-scheme: light;
+}
+html[data-theme="dark"] { color-scheme: dark; }
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+input, textarea { caret-color: var(--accent-text); }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+
+* { scrollbar-width: thin; scrollbar-color: var(--control-border) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--control-border); border-radius: 6px; border: 2px solid var(--bg); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+.mono { font-family: var(--font-mono); }
+.sr-only-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Form row grid: label >= 200px, control >= 280px (DD12). */
+.field-grid { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(280px, 420px); column-gap: 24px; align-items: center; }
+.row-h { min-height: var(--row-h); }
+
+/* Expand/collapse motion only (DD9). */
+@keyframes cd-open { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+.cd-expand { animation: cd-open 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .cd-expand { animation: none; }
+  * { transition: none !important; }
+}
+
+/* Shadow only on dialogs and popovers (DD9). */
+.cd-popover { box-shadow: 0 8px 24px rgb(2 6 23 / 0.35); }
