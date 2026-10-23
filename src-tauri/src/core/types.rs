@@ -462,6 +462,9 @@ pub struct FieldHint {
     pub item_summary: Option<String>,
     /// Sensitive setting warning (spec §7, e.g. permissions).
     pub sensitive: bool,
+    /// Cannot be removed or renamed: `required` by the schema, or listed in
+    /// the preset's `protectedPointers`. Enforced in Rust, mirrored in the UI.
+    pub protected: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

@@ -44,6 +44,7 @@ struct Ui {
     groups: Vec<UiGroup>,
     secret_path_patterns: Vec<String>,
     sensitive_pointers: Vec<String>,
+    protected_pointers: Vec<String>,
     open_map_pointers: Vec<String>,
     item_summary: BTreeMap<String, String>,
     descriptions: BTreeMap<String, String>,
@@ -181,6 +182,11 @@ impl PresetRegistry {
                 sensitive: p
                     .ui
                     .sensitive_pointers
+                    .iter()
+                    .any(|pat| pointer_glob(pat, ptr)),
+                protected: p
+                    .ui
+                    .protected_pointers
                     .iter()
                     .any(|pat| pointer_glob(pat, ptr)),
                 ..FieldHint::default()

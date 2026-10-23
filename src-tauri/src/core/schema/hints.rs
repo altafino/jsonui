@@ -156,6 +156,7 @@ pub(super) fn hint_for(root: &Value, instance: &Value, pointer: &str) -> FieldHi
             _ => None,
         }),
         required,
+        protected: required,
         title: first_text(&cands, "title"),
         description: first_text(&cands, "description"),
         enum_values,

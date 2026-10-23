@@ -42,9 +42,10 @@ Errors reject with `CoreError` (`{ code, message, path, line, column, remediatio
 | `open_document` | `fileId` | `DocumentSnapshot` (current draft if already open) |
 | `reload_document` | `fileId` | `DocumentSnapshot` (discards draft) |
 | `get_subtree` | `fileId, pointer, depth` | `TreeNode` |
-| `get_field_hints` | `fileId, pointers: string[]` | `FieldHint[]` (`valueType` = schema `type`, `required`) |
+| `get_field_hints` | `fileId, pointers: string[]` | `FieldHint[]` (`valueType` = schema `type`, `required`; `protected` = required or preset `protectedPointers`: no remove/rename, enforced by `apply_draft_operation` and `remove_draft_items`) |
 | `get_preset_info` | `fileId` | `PresetInfo \| null` |
 | `apply_draft_operation` | `fileId, op: DraftOp` | `EditResult` |
+| `remove_draft_items` | `fileId, pointers: string[]` | `EditResult` (removes all as ONE undo step; drops pointers under another selected pointer; array items highest index first; refuses protected ones) |
 | `undo_draft_operation` | `fileId` | `EditResult` |
 | `redo_draft_operation` | `fileId` | `EditResult` |
 | `revert_change` | `fileId, opIndex` | `EditResult` |

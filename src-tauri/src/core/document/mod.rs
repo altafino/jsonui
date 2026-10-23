@@ -63,7 +63,11 @@ pub struct DocumentSession {
     masks: RefCell<Vec<String>>,
     source_mask_count: usize,
     ops: Vec<DraftOp>,
-    redo: Vec<DraftOp>,
+    /// Undo steps, oldest first, in ops per step (a batch is one step);
+    /// always sums to `ops.len()`.
+    groups: Vec<usize>,
+    /// Undone steps, most recent last.
+    redo: Vec<Vec<DraftOp>>,
     /// One effect per op, same order.
     effects: Vec<OpEffect>,
     revision: u64,
@@ -106,6 +110,7 @@ impl DocumentSession {
             masks: RefCell::new(Vec::new()),
             source_mask_count: 0,
             ops: Vec::new(),
+            groups: Vec::new(),
             redo: Vec::new(),
             effects: Vec::new(),
             revision: 0,
@@ -233,17 +238,39 @@ impl DocumentSession {
     }
 
     pub fn apply(&mut self, op: DraftOp) -> CoreResult<EditResult> {
-        let effect = self.root_mut()?.apply(&op)?;
-        self.redo.clear();
-        Ok(self.commit(op, effect))
+        self.apply_group(vec![op])
     }
 
-    fn commit(&mut self, op: DraftOp, effect: OpEffect) -> EditResult {
-        let (touched, reshaped) = (effect.touched.clone(), effect.reshaped.clone());
-        self.ops.push(op);
-        self.effects.push(effect);
+    /// Apply `ops` in order as one undo step: all of them or none.
+    pub fn apply_group(&mut self, ops: Vec<DraftOp>) -> CoreResult<EditResult> {
+        let result = self.push_group(ops)?;
+        self.redo.clear();
+        Ok(result)
+    }
+
+    fn push_group(&mut self, ops: Vec<DraftOp>) -> CoreResult<EditResult> {
+        if ops.is_empty() {
+            return Err(invalid("There is nothing to apply"));
+        }
+        let mut effects = Vec::with_capacity(ops.len());
+        for op in &ops {
+            match self.root_mut()?.apply(op) {
+                Ok(effect) => effects.push(effect),
+                Err(e) => {
+                    if !effects.is_empty() {
+                        // Roll the earlier ops of this step back.
+                        self.rebuild(self.ops.clone())?;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        let (touched, reshaped) = touched_and_reshaped(&effects);
+        self.groups.push(ops.len());
+        self.ops.extend(ops);
+        self.effects.extend(effects);
         self.revision += 1;
-        self.edit_result(&touched, &reshaped)
+        Ok(self.edit_result(&touched, &reshaped))
     }
 
     /// Re-parse the original and apply `ops` to it; on success this becomes the
@@ -262,30 +289,30 @@ impl DocumentSession {
         Ok(())
     }
 
+    /// Undo the last step (a single op or a whole batch).
     pub fn undo(&mut self) -> CoreResult<EditResult> {
         self.editable_root()?;
-        let mut ops = self.ops.clone();
-        let (Some(dropped), Some(effect)) = (ops.pop(), self.effects.last().cloned()) else {
+        let Some(&n) = self.groups.last() else {
             return Err(invalid("There is nothing to undo"));
         };
+        let keep = self.ops.len() - n;
+        let (touched, reshaped) = touched_and_reshaped(&self.effects[keep..]);
+        let mut ops = self.ops.clone();
+        let dropped = ops.split_off(keep);
         self.rebuild(ops)?;
+        self.groups.pop();
         self.redo.push(dropped);
         self.revision += 1;
-        Ok(self.edit_result(&effect.touched, &effect.reshaped))
+        Ok(self.edit_result(&touched, &reshaped))
     }
 
     pub fn redo(&mut self) -> CoreResult<EditResult> {
         self.editable_root()?;
-        let Some(op) = self.redo.pop() else {
+        let Some(ops) = self.redo.pop() else {
             return Err(invalid("There is nothing to redo"));
         };
-        match self.root_mut()?.apply(&op) {
-            Ok(effect) => Ok(self.commit(op, effect)),
-            Err(e) => {
-                self.redo.push(op);
-                Err(e)
-            }
-        }
+        self.push_group(ops.clone())
+            .inspect_err(|_| self.redo.push(ops))
     }
 
     /// Does `pointer` address an array in the live document?
@@ -329,6 +356,17 @@ impl DocumentSession {
         let mut ops = self.ops.clone();
         ops.remove(index);
         self.rebuild(ops)?;
+        // Shrink the undo step that held the op.
+        let mut end = 0;
+        if let Some(g) = self.groups.iter().position(|n| {
+            end += n;
+            index < end
+        }) {
+            self.groups[g] -= 1;
+            if self.groups[g] == 0 {
+                self.groups.remove(g);
+            }
+        }
         self.redo.clear();
         self.revision += 1;
         Ok(self.edit_result(&effect.touched, &effect.reshaped))
@@ -344,6 +382,7 @@ impl DocumentSession {
         }
         self.ops.clear();
         self.effects.clear();
+        self.groups.clear();
         self.revision += 1;
     }
 
@@ -590,6 +629,7 @@ impl DocumentSession {
         self.ops.clear();
         self.redo.clear();
         self.effects.clear();
+        self.groups.clear();
         self.revision += 1;
     }
 
@@ -612,6 +652,17 @@ impl DocumentSession {
         }
         out
     }
+}
+
+/// Union of the touched and reshaped pointers of `effects`.
+fn touched_and_reshaped(effects: &[OpEffect]) -> (Vec<Pointer>, Vec<Pointer>) {
+    let mut touched = Vec::new();
+    let mut reshaped = Vec::new();
+    for e in effects {
+        touched.extend(e.touched.iter().cloned());
+        reshaped.extend(e.reshaped.iter().cloned());
+    }
+    (touched, reshaped)
 }
 
 #[derive(Default)]
