@@ -1975,7 +1975,9 @@ impl syntax::Edit for ValDoc {
         Ok(())
     }
     fn add(&mut self, parent: &[String], key: &str, v: &value::Val) -> CoreResult<()> {
-        let value::Val::Object(m) = self.at(parent) else { unreachable!() };
+        let value::Val::Object(m) = self.at(parent) else {
+            unreachable!()
+        };
         m.push((key.to_string(), v.clone()));
         Ok(())
     }
@@ -1991,19 +1993,25 @@ impl syntax::Edit for ValDoc {
         Ok(())
     }
     fn insert(&mut self, array: &[String], index: usize, v: &value::Val) -> CoreResult<()> {
-        let value::Val::Array(a) = self.at(array) else { unreachable!() };
+        let value::Val::Array(a) = self.at(array) else {
+            unreachable!()
+        };
         a.insert(index, v.clone());
         Ok(())
     }
     fn move_item(&mut self, array: &[String], from: usize, to: usize) -> CoreResult<()> {
-        let value::Val::Array(a) = self.at(array) else { unreachable!() };
+        let value::Val::Array(a) = self.at(array) else {
+            unreachable!()
+        };
         let item = a.remove(from);
         a.insert(to, item);
         Ok(())
     }
     fn rename(&mut self, path: &[String], new_key: &str) -> CoreResult<()> {
         let (last, parent) = path.split_last().unwrap();
-        let value::Val::Object(m) = self.at(parent) else { unreachable!() };
+        let value::Val::Object(m) = self.at(parent) else {
+            unreachable!()
+        };
         m.iter_mut().find(|(k, _)| k == last).unwrap().0 = new_key.to_string();
         Ok(())
     }

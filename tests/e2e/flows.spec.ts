@@ -3,7 +3,7 @@ import { externalChange, launch, noHorizontalScroll, openFile, saveStatus } from
 
 test("first launch: sample, toggle, review, save, undo save", async ({ page }) => {
   await launch(page);
-  await expect(page.getByText("Edit JSON settings as forms. Every save makes a backup first.")).toBeVisible();
+  await expect(page.getByText("Edit JSON, YAML and TOML settings as forms. Every save makes a backup first.")).toBeVisible();
   await page.getByRole("button", { name: /Try with a sample/ }).click();
 
   const header = page.getByRole("group", { name: "File header" });

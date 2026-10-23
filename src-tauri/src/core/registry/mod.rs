@@ -234,7 +234,7 @@ impl Registry {
         })
     }
 
-    /// Create a new file containing `{}\n` (refuses to overwrite) and register it.
+    /// Create a new, empty document (refuses to overwrite) and register it.
     pub fn create_new(&mut self, path: &Path) -> CoreResult<ManagedDocument> {
         use std::io::Write;
         let mut file = fs::OpenOptions::new()
@@ -249,7 +249,7 @@ impl Registry {
                     CoreError::from_io(&e, path)
                 }
             })?;
-        file.write_all(b"{}\n")
+        file.write_all(Self::empty_document(Self::kind_for(path)))
             .and_then(|()| file.sync_all())
             .map_err(|e| CoreError::from_io(&e, path))?;
         drop(file);
@@ -403,6 +403,14 @@ impl Registry {
             Self::entry_mut(s, id)?.last_opened_at = Some(now_rfc3339());
             Ok(())
         })
+    }
+
+    /// Contents of a new empty document: `{}` for JSON, nothing for YAML/TOML.
+    pub fn empty_document(kind: DocKind) -> &'static [u8] {
+        match kind {
+            DocKind::Json | DocKind::Jsonc => b"{}\n",
+            DocKind::Yaml | DocKind::Toml => b"",
+        }
     }
 
     pub fn kind_for(path: &Path) -> DocKind {

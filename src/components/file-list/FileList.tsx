@@ -14,8 +14,8 @@ export function FileList({ rail }: { rail: boolean }) {
   const groups = useMemo(() => groupFiles(files), [files]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const addEntries = [
-    { label: "Add JSON file…", icon: <FilePlus className="size-4" aria-hidden />, onSelect: () => void addFile() },
-    { label: "Create new JSON file…", icon: <FileText className="size-4" aria-hidden />, onSelect: () => void createFile() },
+    { label: "Add config file…", icon: <FilePlus className="size-4" aria-hidden />, onSelect: () => void addFile() },
+    { label: "Create new config file…", icon: <FileText className="size-4" aria-hidden />, onSelect: () => void createFile() },
     { label: "Discover Claude Code settings", icon: <FolderSearch className="size-4" aria-hidden />, onSelect: () => openDialog({ kind: "discover" }) },
     { label: "Try with a sample", icon: <FlaskConical className="size-4" aria-hidden />, onSelect: () => void trySample() },
   ];

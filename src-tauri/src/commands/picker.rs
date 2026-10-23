@@ -9,6 +9,9 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_dialog::DialogExt;
 
+const CONFIG_FILTER: &str = "Config files (JSON, JSONC, YAML, TOML)";
+const CONFIG_EXTENSIONS: &[&str] = &["json", "jsonc", "yaml", "yml", "toml"];
+
 pub enum PickKind {
     OpenJson,
     SaveJson { suggested_name: String },
@@ -23,13 +26,13 @@ pub fn pick<R: Runtime>(app: &AppHandle<R>, kind: PickKind) -> Option<PathBuf> {
     let dialog = app.dialog().file();
     let picked = match kind {
         PickKind::OpenJson => dialog
-            .set_title("Add JSON file")
-            .add_filter("JSON / JSONC", &["json", "jsonc"])
+            .set_title("Add config file")
+            .add_filter(CONFIG_FILTER, CONFIG_EXTENSIONS)
             .blocking_pick_file(),
         PickKind::SaveJson { suggested_name } => dialog
             .set_title("Save as")
             .set_file_name(suggested_name)
-            .add_filter("JSON / JSONC", &["json", "jsonc"])
+            .add_filter(CONFIG_FILTER, CONFIG_EXTENSIONS)
             .blocking_save_file(),
         PickKind::Folder => dialog
             .set_title("Choose project folder")

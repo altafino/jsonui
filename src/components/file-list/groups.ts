@@ -19,7 +19,7 @@ export function groupFiles(files: ManagedDocument[]): FileGroup[] {
     if (f.entryKind === "sample") put("sample", "Sample", f);
     else if (f.presetId === "claude-code" || f.collectionId === "claude-code") put("claude-code", "Claude Code", f);
     else if (f.collectionId) put(`c:${f.collectionId}`, humanize(f.collectionId), f);
-    else put("other", "Other JSON files", f);
+    else put("other", "Other config files", f);
   }
   const rank = (id: string) => (id === "claude-code" ? 0 : id === "sample" ? 1 : id === "other" ? 9 : 5);
   const scopeRank: Record<string, number> = { user: 0, managed: 1, "project-shared": 2, "project-local": 3 };
