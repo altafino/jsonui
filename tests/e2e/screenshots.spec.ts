@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { externalChange, launch, noHorizontalScroll, openFile } from "./helpers";
 
-// Visual verification set (spec §17). Written to docs/screenshots/.
-const OUT = "docs/screenshots";
+// Visual verification set (spec §17). Test runs write to test-results/;
+// UPDATE_SCREENSHOTS=1 (make screenshots) refreshes the committed docs/screenshots/.
+const OUT = process.env.UPDATE_SCREENSHOTS ? "docs/screenshots" : "test-results/screenshots";
 const WIDTHS = [1024, 1366, 1920] as const;
 const HEIGHT: Record<number, number> = { 1024: 768, 1366: 768, 1920: 1080 };
 const THEMES = ["dark", "light"] as const;

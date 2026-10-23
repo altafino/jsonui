@@ -37,14 +37,20 @@ portable AppImage use the CI artifact built on Ubuntu 22.04
 
 ## Develop
 
-| Task | Command |
-|---|---|
-| Rust tests (core + flows; regenerates TS contract types) | `cd src-tauri && cargo test --lib --tests` |
-| Rust lint / format | `cargo clippy --all-targets -- -D warnings`, `cargo fmt` |
-| Architecture rules | `pnpm check:boundaries` |
-| Frontend type check / unit tests | `pnpm typecheck`, `pnpm test` |
-| UI flows (browser, mocked backend) | `pnpm test:e2e` |
-| Real-app journeys (WebdriverIO + tauri-driver) | `pnpm build:app` once, then `pnpm test:wdio` (needs `cargo install tauri-driver --locked`, `WebKitWebDriver`, and an X display: `xvfb-run -a pnpm test:wdio`; see `tests/wdio/`) |
+Run `make` to list every target. The usual loop:
+
+```sh
+make doctor   # check toolchain and system libraries
+make setup    # JS deps, Playwright Chromium, tauri-driver
+make dev      # app with hot reload (make ui: browser + mock backend)
+make test     # Rust + UI unit tests
+make check    # everything CI runs: lint, unit, Playwright, real-app journeys
+make bundle   # AppImage + .deb
+```
+
+`make wdio` drives the real app on a throwaway X display (`xvfb-run`, or `Xvnc`
+when that is missing), so no windows open on your desktop. Plain `pnpm`/`cargo`
+commands still work; the Makefile only wraps them.
 
 Layout: `src-tauri/src/core/` is the Tauri-free engine (document, patch,
 persistence, backup, registry, schema, presets, security, watcher);
