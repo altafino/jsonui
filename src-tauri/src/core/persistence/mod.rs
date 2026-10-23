@@ -97,6 +97,10 @@ pub struct SaveRequest<'a> {
     pub expected: &'a Fingerprint,
     pub candidate: &'a [u8],
     pub confirmations: LinkConfirmations,
+    /// Canonical target recorded when the draft was loaded (eng R5). When
+    /// set, a registered symlink that now resolves elsewhere is a conflict,
+    /// even if the new target has identical bytes.
+    pub expected_target: Option<&'a Path>,
     /// Re-validates candidate bytes (reparse + schema). Err aborts the save.
     pub validate: &'a dyn Fn(&[u8]) -> CoreResult<()>,
     pub backups: &'a BackupStore,
@@ -136,6 +140,9 @@ pub fn save(req: &SaveRequest) -> CoreResult<SaveOutcome> {
     let shown = req.path;
     // Step 2: resolve and validate the destination.
     let resolved = resolve_target(shown)?;
+    if req.expected_target.is_some_and(|t| t != resolved.target_path) {
+        return Err(conflict(shown));
+    }
     // Steps 3-4: compare the bytes on disk with the loaded snapshot.
     let current = fs::read(&resolved.target_path).map_err(|e| CoreError::from_io(&e, shown))?;
     if fingerprint(&current) != *req.expected {

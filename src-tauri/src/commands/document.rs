@@ -27,9 +27,10 @@ fn load_document(inner: &mut Inner, file_id: &str) -> CoreResult<DocumentSnapsho
     let preset_id = entry.preset_id.clone().or_else(|| inner.presets.detect(&path, session.to_value().as_ref()));
     let user_schema = entry.local_schema_path.as_deref().and_then(|p| CompiledSchema::load_user(Path::new(p)).ok());
     let read_only = entry.read_only;
+    let target = crate::core::security::paths::resolve_target(&path).ok().map(|r| r.target_path);
     inner.open.insert(
         file_id.to_string(),
-        OpenDoc { session, poller: FilePoller::new(&path, known), external_change: None, user_schema, preset_id },
+        OpenDoc { session, poller: FilePoller::new(&path, known), external_change: None, user_schema, preset_id, target },
     );
     let _ = inner.registry.touch_opened(file_id);
     let doc = inner.doc(file_id)?;
@@ -217,6 +218,7 @@ pub fn save_draft(state: State<AppState>, file_id: String, expected_fingerprint:
             expected: &expected_fingerprint,
             candidate: &candidate,
             confirmations: link_confirmations(&entry),
+            expected_target: inner.doc(&file_id)?.target.as_deref(),
             validate: &validate,
             backups: &inner.backups,
             change_count: Some(change_count),
@@ -321,6 +323,7 @@ pub fn restore_backup(state: State<AppState>, file_id: String, backup_id: String
             expected: &expected_fingerprint,
             candidate: &backup,
             confirmations: link_confirmations(&entry),
+            expected_target: inner.doc(&file_id)?.target.as_deref(),
             validate: &validate,
             backups: &inner.backups,
             change_count: None,

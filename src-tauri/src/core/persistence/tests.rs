@@ -44,6 +44,7 @@ impl Fx {
             expected: &expected,
             candidate: candidate.as_bytes(),
             confirmations: conf,
+            expected_target: None,
             validate: &|_| Ok(()),
             backups: &self.backups,
             change_count: Some(1),
@@ -184,6 +185,7 @@ fn a18_backup_failure_means_no_write() {
         expected: &expected,
         candidate: b"new\n",
         confirmations: NONE,
+        expected_target: None,
         validate: &|_| Ok(()),
         backups: &backups,
         change_count: None,
@@ -205,6 +207,7 @@ fn validation_failure_writes_nothing() {
         expected: &expected,
         candidate: b"bad",
         confirmations: NONE,
+        expected_target: None,
         validate: &|_| Err(CoreError::new(ErrorCode::InvalidJson, "nope")),
         backups: &fx.backups,
         change_count: None,
@@ -316,6 +319,34 @@ mod unix {
     }
 
     #[test]
+    fn a21_link_retargeted_to_identical_bytes_before_save_conflicts() {
+        let fx = Fx::new();
+        let a = fx.file("a.json", "same\n");
+        let b = fx.file("b.json", "same\n");
+        let link = fx.work().join("link.json");
+        symlink(&a, &link).unwrap();
+        let loaded_target = fs::canonicalize(&link).unwrap();
+        fs::remove_file(&link).unwrap();
+        symlink(&b, &link).unwrap(); // same bytes, different file
+        let expected = fingerprint(b"same\n");
+        let e = save(&SaveRequest {
+            file_id: "fid",
+            path: &link,
+            expected: &expected,
+            candidate: b"new\n",
+            confirmations: LinkConfirmations { symlink: true, hardlink: false },
+            expected_target: Some(&loaded_target),
+            validate: &|_| Ok(()),
+            backups: &fx.backups,
+            change_count: None,
+        })
+        .unwrap_err();
+        assert_eq!(e.code, ErrorCode::ExternalChangeConflict);
+        assert_eq!(fs::read(&a).unwrap(), b"same\n");
+        assert_eq!(fs::read(&b).unwrap(), b"same\n");
+    }
+
+    #[test]
     fn a21_link_retargeted_to_identical_bytes_during_save_conflicts() {
         let fx = Fx::new();
         let a = fx.file("a.json", "same\n");
@@ -407,6 +438,7 @@ fn retention_pruned_per_file_on_save() {
             expected: &expected,
             candidate: next.as_bytes(),
             confirmations: NONE,
+            expected_target: None,
             validate: &|_| Ok(()),
             backups: &backups,
             change_count: None,

@@ -21,6 +21,8 @@ pub struct OpenDoc {
     /// User schema compiled for this document, if associated.
     pub user_schema: Option<CompiledSchema>,
     pub preset_id: Option<String>,
+    /// Canonical file the registered path resolved to at load (eng R5).
+    pub target: Option<std::path::PathBuf>,
 }
 
 pub struct Inner {
