@@ -291,6 +291,38 @@ export function createMockBackend(options: MockOptions = {}) {
     return editResult(o, before, after, forceReshaped);
   }
 
+  // One undo step for a batch: its ops share a hidden group id `g` (Rust keeps them as one history entry).
+  let groupSeq = 0;
+  const gOf = (op: DraftOp) => (op as DraftOp & { g?: number }).g;
+  const groupLen = (stack: DraftOp[]) => {
+    const g = gOf(stack[stack.length - 1]);
+    if (g === undefined) return 1;
+    let n = 0;
+    while (n < stack.length && gOf(stack[stack.length - 1 - n]) === g) n++;
+    return n;
+  };
+
+  function refuseProtected(fileId: string, o: Open, paths: string[]) {
+    const presetId = entry(fileId).presetId;
+    const hit = paths.find((p) => hintFor(presetId, p, o.draft).protected);
+    if (hit) throw coreError("INVALID_OPERATION", "Required settings can't be removed or renamed.", `${hit} is required.`);
+  }
+
+  /** Drops pointers under another selected one; array items go highest index first so indexes stay valid. */
+  function removalOrder(pointers: string[]): string[] {
+    const toks = [...new Set(pointers)].map((p) => ({ p, t: parsePointer(p) }));
+    const kept = toks.filter((a) => !toks.some((b) => b.t.length < a.t.length && b.t.every((s, i) => s === a.t[i])));
+    const cmp = (a: string, b: string) => (/^\d+$/.test(a) && /^\d+$/.test(b) ? Number(a) - Number(b) : a < b ? -1 : a > b ? 1 : 0);
+    kept.sort((a, b) => {
+      for (let i = 0; i < Math.min(a.t.length, b.t.length); i++) {
+        const c = cmp(a.t[i], b.t[i]);
+        if (c) return -c;
+      }
+      return b.t.length - a.t.length;
+    });
+    return kept.map((k) => k.p);
+  }
+
   const forcedReshape = (op: DraftOp): string[] => (op.op === "array-move" ? [op.path] : []);
 
   // ------------------------------------------------------------ api
@@ -475,19 +507,31 @@ export function createMockBackend(options: MockOptions = {}) {
       const o = openOf(fileId);
       guardEditable(fileId, o);
       if (o.conflict) throw coreError("EXTERNAL_CHANGE_CONFLICT", "This file changed outside ConfigDeck. Resolve the conflict first.");
+      if (op.op === "remove" || op.op === "rename-key") refuseProtected(fileId, o, [op.path]);
       return mutate(o, [...o.ops, op], [], forcedReshape(op));
+    },
+    async removeDraftItems(fileId, pointers) {
+      const o = openOf(fileId);
+      guardEditable(fileId, o);
+      if (o.conflict) throw coreError("EXTERNAL_CHANGE_CONFLICT", "This file changed outside ConfigDeck. Resolve the conflict first.");
+      const paths = removalOrder(pointers);
+      refuseProtected(fileId, o, paths);
+      const g = ++groupSeq;
+      return mutate(o, [...o.ops, ...paths.map((path) => ({ op: "remove", path, g }) as DraftOp)], []);
     },
     async undoDraftOperation(fileId) {
       const o = openOf(fileId);
       if (!o.ops.length) throw coreError("INVALID_OPERATION", "Nothing to undo.");
       const last = o.ops[o.ops.length - 1];
-      return mutate(o, o.ops.slice(0, -1), [...o.redo, last], forcedReshape(last));
+      const n = groupLen(o.ops);
+      return mutate(o, o.ops.slice(0, -n), [...o.redo, ...o.ops.slice(-n).reverse()], forcedReshape(last));
     },
     async redoDraftOperation(fileId) {
       const o = openOf(fileId);
       if (!o.redo.length) throw coreError("INVALID_OPERATION", "Nothing to redo.");
       const next = o.redo[o.redo.length - 1];
-      return mutate(o, [...o.ops, next], o.redo.slice(0, -1), forcedReshape(next));
+      const n = groupLen(o.redo);
+      return mutate(o, [...o.ops, ...o.redo.slice(-n).reverse()], o.redo.slice(0, -n), forcedReshape(next));
     },
     async revertChange(fileId, opIndex) {
       const o = openOf(fileId);

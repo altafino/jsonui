@@ -11,6 +11,7 @@ import { ArrayList } from "./ArrayList";
 import { AbsentBooleanRow, Field, labelFor } from "./Field";
 import { idFor, shouldShowKey, useEnv, useHint, useNode, useChangeFor } from "./context";
 import { RowDiagnostics, useRowEntries } from "./FieldRow";
+import { ItemSelect, PROTECTED_REASON, RowRemoval } from "./Removal";
 import { MapEditor } from "./MapEditor";
 import { humanize } from "../../lib/json/pointer";
 
@@ -78,7 +79,7 @@ export function ContainerField({ pointer, level }: { pointer: string; level: num
   const hint = useHint(pointer);
   const expanded = useDocs((s) => !!s.docs[fileId]?.expanded[pointer]);
   const change = useChangeFor(pointer);
-  const entries = useRowEntries(pointer, node?.key !== null);
+  const entries = useRowEntries(pointer, node?.key !== null, !!hint?.protected);
   if (!node) return null;
   const label = labelFor(node, hint);
   if (level > MAX_INLINE_LEVEL) return <OpenRow node={node} label={label} fileId={fileId} />;
@@ -92,6 +93,7 @@ export function ContainerField({ pointer, level }: { pointer: string; level: num
     <div id={`row-${pointer}`} data-pointer={pointer} data-changed={node.changed || undefined} className="relative">
       <div className="group relative flex items-center gap-2 border-b border-line row-h py-1 pl-4 pr-3 hover:bg-hover focus-within:bg-hover">
         {node.changed ? <span className="absolute left-1.5 top-1/2 -translate-y-1/2"><ChangedDot /></span> : null}
+        <ItemSelect pointer={pointer} label={label} removable={node.key !== null} isProtected={hint?.protected} />
         <button
           type="button"
           aria-expanded={open}
@@ -102,11 +104,17 @@ export function ContainerField({ pointer, level }: { pointer: string; level: num
           {open ? <ChevronDown className="size-4 shrink-0" aria-hidden /> : <ChevronRight className="size-4 shrink-0" aria-hidden />}
           <span className="min-w-0">
             <span id={labelId} className="block truncate font-medium">{label}</span>
-            {showKey || showAdvanced ? <span className="block mono text-[0.8125rem] text-muted">{node.key}{showAdvanced ? ` · ${node.kind}` : ""}</span> : null}
+            {showKey || showAdvanced || hint?.protected ? (
+              <span className="block mono text-[0.8125rem] text-muted">
+                {[showKey || showAdvanced ? node.key : null, showAdvanced ? node.kind : null].filter(Boolean).join(" · ")}
+                {hint?.protected ? <>{showKey || showAdvanced ? " · " : ""}<span title={PROTECTED_REASON}>Required</span></> : null}
+              </span>
+            ) : null}
           </span>
           {!open ? <span className="mono text-sm text-muted">{summaryOf(node)}</span> : null}
         </button>
         {open && node.kind === "object" && !isMap ? <AddSettingMenu parent={pointer} label={label} /> : null}
+        <RowRemoval pointer={pointer} label={label} removable={node.key !== null} isProtected={hint?.protected} />
         <DropdownMenu
           label={`Actions for ${label}`}
           trigger={

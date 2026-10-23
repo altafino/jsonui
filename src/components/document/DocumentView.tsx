@@ -6,6 +6,7 @@ import { Banners } from "./Banners";
 import { DocumentHeader, MiddlePath } from "./DocumentHeader";
 import { MissingFile } from "./EmptyStates";
 import { Form } from "./Form";
+import { SelectionBar } from "./SelectionBar";
 import { SourceViewPanel } from "./SourceViewPanel";
 import { Toolbar } from "./Toolbar";
 
@@ -68,6 +69,7 @@ export function DocumentView({ fileId }: { fileId: string }) {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" data-testid="form-scroll">
             <Form fileId={fileId} />
+            <SelectionBar fileId={fileId} />
           </div>
         </>
       )}

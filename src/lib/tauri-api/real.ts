@@ -30,6 +30,7 @@ export const realApi: Api = {
     ),
   getPresetInfo: (fileId) => call("get_preset_info", { fileId }),
   applyDraftOperation: (fileId, op) => call("apply_draft_operation", { fileId, op }),
+  removeDraftItems: (fileId, pointers) => call("remove_draft_items", { fileId, pointers }),
   undoDraftOperation: (fileId) => call("undo_draft_operation", { fileId }),
   redoDraftOperation: (fileId) => call("redo_draft_operation", { fileId }),
   revertChange: (fileId, opIndex) => call("revert_change", { fileId, opIndex }),
