@@ -1,0 +1,7 @@
+service:
+  name: demo   # first
+  API_TOKEN: sk-test-3333333333333333
+  name: other
+  secret: |
+    sk-test-block-4444
+  tags: [x, "sk-test-flow-5555"]

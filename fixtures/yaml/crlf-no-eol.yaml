@@ -1,0 +1,13 @@
+# CRLF file without a final newline
+name: demo   # trailing
+items:
+  - one
+  - 'two'
+nested:
+  key: value
+  secret_key: sk-test-8888888888888888
+flow: [1, 2]
+block: |
+  line one
+  line two
+last: end

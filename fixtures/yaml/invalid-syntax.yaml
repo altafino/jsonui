@@ -1,0 +1,8 @@
+service:
+  name: demo
+  API_TOKEN: sk-test-1111111111111111
+  list: [a, b
+  other: ghx_fake_token_value
+  nested:
+    password: "hunter2-fake"
+    bad: [unclosed, sk-test-2222

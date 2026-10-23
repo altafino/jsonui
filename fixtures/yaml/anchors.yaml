@@ -1,0 +1,27 @@
+# Anchors, aliases, merge keys and tags (fake values only).
+defaults: &defaults
+  adapter: postgres
+  host: db.example.test
+  password: sk-test-anchor-0000
+
+development:
+  <<: *defaults
+  database: dev_db
+
+production:
+  <<: *defaults
+  host: prod.example.test
+
+shared_list: &ports
+  - 80
+  - 443
+mirror: *ports
+
+plain_anchor: &name service-one
+other: *name
+
+stack:
+  Bucket: !Ref BucketName
+  Role: !GetAtt [RoleA, Arn]
+  Label: !!str 123
+  Free: plain

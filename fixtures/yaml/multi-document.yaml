@@ -1,0 +1,9 @@
+---
+service: demo
+API_TOKEN: sk-test-6666666666666666
+---
+second:
+  password: 'hunter2-fake'
+  list:
+    - ghx_fake_token_value
+    - "quoted sk-test-7777"
