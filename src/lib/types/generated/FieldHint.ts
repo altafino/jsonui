@@ -3,7 +3,15 @@
 /**
  * Schema-derived hints for one field (spec §5/§6).
  */
-export type FieldHint = { pointer: string, title: string | null, description: string | null, 
+export type FieldHint = { pointer: string, 
+/**
+ * JSON Schema `type` (`"boolean"`, `"integer"`, …), first non-null one.
+ */
+valueType: string | null, 
+/**
+ * Listed in the parent's `required`.
+ */
+required: boolean, title: string | null, description: string | null, 
 /**
  * Allowed values as JSON text.
  */

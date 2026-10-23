@@ -32,6 +32,7 @@ export interface Api {
   listDiscoverableClaudeFiles(): Promise<DiscoveredCandidate[]>;
   pickProjectDirectory(): Promise<DiscoveredCandidate[] | null>;
   addDiscoveredFile(candidateId: string): Promise<ManagedDocument>;
+  createMissingFile(fileId: string): Promise<void>;
   openDocument(fileId: string): Promise<DocumentSnapshot>;
   reloadDocument(fileId: string): Promise<DocumentSnapshot>;
   getSubtree(fileId: string, pointer: string, depth: number): Promise<TreeNode>;

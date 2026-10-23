@@ -13,7 +13,12 @@ use configdeck_lib::core::types::{DocKind, DraftOp, Scope, Severity};
 use configdeck_lib::core::{CoreResult, ErrorCode, MAX_EDITABLE_BYTES};
 
 fn fixture(name: &str) -> Vec<u8> {
-    fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures").join(name)).unwrap()
+    fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures")
+            .join(name),
+    )
+    .unwrap()
 }
 
 struct Env {
@@ -30,7 +35,12 @@ impl Env {
         let config = dir.path().join("config");
         fs::create_dir_all(&work).unwrap();
         let backups = BackupStore::new(dir.path().join("data/backups"), 20);
-        Self { work, config, backups, _dir: dir }
+        Self {
+            work,
+            config,
+            backups,
+            _dir: dir,
+        }
     }
 
     fn put(&self, name: &str, bytes: &[u8]) -> PathBuf {
@@ -39,7 +49,12 @@ impl Env {
         p
     }
 
-    fn save(&self, id: &str, path: &Path, session: &DocumentSession) -> CoreResult<persistence::SaveOutcome> {
+    fn save(
+        &self,
+        id: &str,
+        path: &Path,
+        session: &DocumentSession,
+    ) -> CoreResult<persistence::SaveOutcome> {
         let candidate = session.candidate_bytes();
         persistence::save(&SaveRequest {
             file_id: id,
@@ -52,7 +67,10 @@ impl Env {
                 if DocumentSession::load(id, bytes.to_vec(), DocKind::Json).is_editable() {
                     Ok(())
                 } else {
-                    Err(configdeck_lib::core::CoreError::new(ErrorCode::InvalidJson, "invalid"))
+                    Err(configdeck_lib::core::CoreError::new(
+                        ErrorCode::InvalidJson,
+                        "invalid",
+                    ))
                 }
             },
             backups: &self.backups,
@@ -62,7 +80,10 @@ impl Env {
 }
 
 fn set(path: &str, json: &str) -> DraftOp {
-    DraftOp::Set { path: path.into(), value_json: json.into() }
+    DraftOp::Set {
+        path: path.into(),
+        value_json: json.into(),
+    }
 }
 
 #[test]
@@ -79,13 +100,20 @@ fn edit_save_backup_restore_round_trip() {
     session.apply(set("/debug", "true")).unwrap();
 
     // A02: only the boolean token changes.
-    let expected = String::from_utf8(original.clone()).unwrap().replacen("\"debug\": false", "\"debug\": true", 1);
+    let expected = String::from_utf8(original.clone()).unwrap().replacen(
+        "\"debug\": false",
+        "\"debug\": true",
+        1,
+    );
     assert_eq!(session.candidate_bytes(), expected.as_bytes());
 
     // A16: save writes the candidate and keeps the original as a backup.
     let outcome = env.save(&entry.id, &path, &session).unwrap();
     assert_eq!(fs::read(&path).unwrap(), expected.as_bytes());
-    assert_eq!(env.backups.read(&entry.id, &outcome.backup_id).unwrap(), original);
+    assert_eq!(
+        env.backups.read(&entry.id, &outcome.backup_id).unwrap(),
+        original
+    );
     session.adopt_saved(expected.clone().into_bytes());
     assert!(!session.is_dirty());
 
@@ -119,7 +147,10 @@ fn external_change_blocks_save_then_reapply_keeps_both_edits() {
     // Claude Code appends an allow rule while the draft is open.
     let disk = String::from_utf8(fs::read(&path).unwrap())
         .unwrap()
-        .replace("[\"Bash(git status)\"]", "[\"Bash(git status)\", \"Bash(ls)\"]");
+        .replace(
+            "[\"Bash(git status)\"]",
+            "[\"Bash(git status)\", \"Bash(ls)\"]",
+        );
     fs::write(&path, &disk).unwrap();
 
     // A14: the save is refused and the external bytes stay.
@@ -144,8 +175,12 @@ fn section_replace_overlapping_disk_change_cannot_reapply() {
     let path = env.put("settings.json", &fixture("claude-settings.json"));
     let bytes = fs::read(&path).unwrap();
     let mut session = DocumentSession::load("f1", bytes, DocKind::Json);
-    session.apply(set("/permissions", "{\"allow\": []}")).unwrap();
-    let disk = String::from_utf8(fs::read(&path).unwrap()).unwrap().replace("\"Read(.env)\"", "\"Read(.env)\", \"Read(.ssh)\"");
+    session
+        .apply(set("/permissions", "{\"allow\": []}"))
+        .unwrap();
+    let disk = String::from_utf8(fs::read(&path).unwrap())
+        .unwrap()
+        .replace("\"Read(.env)\"", "\"Read(.env)\", \"Read(.ssh)\"");
     let conflict = session.conflict(disk.as_bytes(), &|_| false);
     assert!(!conflict.can_reapply);
     assert!(session.reapply_onto(disk.into_bytes()).is_err());
@@ -164,7 +199,12 @@ fn claude_preset_warns_but_allows_unknown_keys() {
     let value = session.to_value().unwrap();
     let schema = presets.schema(&preset).expect("bundled schema compiles");
     // A24: unknown vendor keys are not errors.
-    assert!(schema.validate(&value).iter().all(|d| d.severity != Severity::Error));
+    assert!(
+        schema
+            .validate(&value)
+            .iter()
+            .all(|d| d.severity != Severity::Error)
+    );
     // Wrong type on a known key is a warning, never an error (eng R2).
     let bad: serde_json::Value = serde_json::json!({ "permissions": 5 });
     let diags = schema.validate(&bad);
@@ -177,12 +217,24 @@ fn managed_scope_is_read_only_and_invalid_files_are_not_editable() {
     let env = Env::new();
     let (mut registry, _) = Registry::load(&env.config);
     let managed = env.put("managed-settings.json", b"{}\n");
-    assert!(registry.add(&managed, None, Some(Scope::Managed), None).unwrap().read_only);
+    assert!(
+        registry
+            .add(&managed, None, Some(Scope::Managed), None)
+            .unwrap()
+            .read_only
+    );
 
-    for name in ["invalid-comment.json", "invalid-missing-comma.json", "duplicate-keys.json"] {
+    for name in [
+        "invalid-comment.json",
+        "invalid-missing-comma.json",
+        "duplicate-keys.json",
+    ] {
         let session = DocumentSession::load("x", fixture(name), DocKind::Json);
         assert!(!session.is_editable(), "{name} must not be editable");
-        assert!(session.snapshot(false).source_view.is_some(), "{name} shows the source view (DD4)");
+        assert!(
+            session.snapshot(false).source_view.is_some(),
+            "{name} shows the source view (DD4)"
+        );
     }
     // The JSONC fixture is editable as .jsonc and keeps every other byte (A12).
     let src = fixture("commented.jsonc");

@@ -1,6 +1,6 @@
 import { FilePlus, FolderSearch, FlaskConical, FileX } from "lucide-react";
 import type { ReactNode } from "react";
-import { addFile, createFile, relocate, trySample } from "../../lib/store/actions";
+import { addFile, createMissing, relocate, trySample } from "../../lib/store/actions";
 import { useApp } from "../../lib/store/app-store";
 import { Button } from "../ui/Button";
 
@@ -50,7 +50,7 @@ export function MissingFile({ fileId, path }: { fileId: string; path: string }) 
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={() => void relocate(fileId)}>Locate file</Button>
-        <Button onClick={() => void createFile()}>Create empty file</Button>
+        <Button onClick={() => void createMissing(fileId)}>Create empty file</Button>
         <Button variant="danger" onClick={() => openDialog({ kind: "remove", fileId })}>Remove from ConfigDeck</Button>
       </div>
     </div>

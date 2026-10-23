@@ -4,8 +4,6 @@ import type { ManagedDocument } from "../types/generated/ManagedDocument";
 import { useApp } from "./app-store";
 import { closeDoc, discardDraft, externalChange, openDoc, patch, receiveDiagnostics, saveDocument, useDocs } from "./doc-store";
 
-const PROBE_LIMIT = 12;
-const PROBE_MAX_BYTES = 1024 * 1024;
 
 const dirtyOf = (id: string | null) => (id ? (useDocs.getState().docs[id]?.dirtyCount ?? 0) : 0);
 
@@ -58,6 +56,15 @@ export const addFile = () => addAndSelect(api.pickAndAddManagedFile());
 export const createFile = () => addAndSelect(api.pickAndCreateManagedFile());
 export const trySample = () => addAndSelect(api.createSampleFile());
 export const addDiscovered = (candidateId: string) => addAndSelect(api.addDiscoveredFile(candidateId));
+export async function createMissing(fileId: string) {
+  try {
+    await api.createMissingFile(fileId);
+    await useApp.getState().refreshStatuses();
+    await openDoc(fileId, { force: true });
+  } catch (e) {
+    useApp.getState().announce(toCoreError(e).message, "assertive");
+  }
+}
 export const relocate = (fileId: string) => addAndSelect(api.relocateManagedFile(fileId)).then(() => openDoc(fileId, { force: true }));
 
 export async function removeFile(fileId: string) {
@@ -84,15 +91,6 @@ export async function copyText(text: string, what: string) {
   } catch {
     useApp.getState().announce(`Could not copy ${what}`, "assertive");
   }
-}
-
-/** Learns validity of the other registered files so the sidebar can flag invalid ones. */
-async function probe(activeId: string | null) {
-  const { files, statuses } = useApp.getState();
-  const targets = files
-    .filter((f) => f.id !== activeId && statuses[f.id]?.exists !== false && (Number(statuses[f.id]?.sizeBytes ?? 0) <= PROBE_MAX_BYTES))
-    .slice(0, PROBE_LIMIT);
-  for (const f of targets) if (!useDocs.getState().docs[f.id]) await openDoc(f.id);
 }
 
 let booting: Promise<void> | null = null;
@@ -124,7 +122,6 @@ async function boot() {
   const files = useApp.getState().files;
   const last = [...files].sort((a, b) => (b.lastOpenedAt ?? "").localeCompare(a.lastOpenedAt ?? ""))[0] ?? files[0];
   if (last) await activate(last.id);
-  void probe(last?.id ?? null);
 }
 
 /** Test helper: allows bootstrap() to run again against a fresh mock. */

@@ -4,4 +4,4 @@ export type BackupEntry = { id: string, fileId: string,
 /**
  * RFC 3339.
  */
-createdAt: string, sizeBytes: bigint, changeCount: number | null, location: string, };
+createdAt: string, sizeBytes: number, changeCount: number | null, location: string, };

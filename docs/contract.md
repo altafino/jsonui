@@ -26,7 +26,7 @@ Errors reject with `CoreError` (`{ code, message, path, line, column, remediatio
 | Command | Args | Returns |
 |---|---|---|
 | `list_managed_files` | – | `ManagedDocument[]` |
-| `get_file_statuses` | – | `FileStatus[]` |
+| `get_file_statuses` | – | `FileStatus[]` (`editable`: parses as editable; `null` when unreadable or too large) |
 | `get_startup_notices` | – | `Notice[]` |
 | `pick_and_add_managed_file` | `displayName?: string` | `ManagedDocument \| null` (null = dialog cancelled) |
 | `pick_and_create_managed_file` | – | `ManagedDocument \| null` |
@@ -37,11 +37,12 @@ Errors reject with `CoreError` (`{ code, message, path, line, column, remediatio
 | `confirm_link_write` | `fileId` | `ManagedDocument` |
 | `list_discoverable_claude_files` | – | `DiscoveredCandidate[]` (user + managed) |
 | `pick_project_directory` | – | `DiscoveredCandidate[] \| null` (shared + local for the picked dir) |
-| `add_discovered_file` | `candidateId` | `ManagedDocument` |
-| `open_document` | `fileId` | `DocumentSnapshot` |
+| `add_discovered_file` | `candidateId` | `ManagedDocument` (creates `{}` for a missing candidate) |
+| `create_missing_file` | `fileId` | – (writes `{}` at the registered path; never overwrites) |
+| `open_document` | `fileId` | `DocumentSnapshot` (current draft if already open) |
 | `reload_document` | `fileId` | `DocumentSnapshot` (discards draft) |
 | `get_subtree` | `fileId, pointer, depth` | `TreeNode` |
-| `get_field_hints` | `fileId, pointers: string[]` | `FieldHint[]` |
+| `get_field_hints` | `fileId, pointers: string[]` | `FieldHint[]` (`valueType` = schema `type`, `required`) |
 | `get_preset_info` | `fileId` | `PresetInfo \| null` |
 | `apply_draft_operation` | `fileId, op: DraftOp` | `EditResult` |
 | `undo_draft_operation` | `fileId` | `EditResult` |

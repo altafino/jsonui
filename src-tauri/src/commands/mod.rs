@@ -52,6 +52,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         files::list_discoverable_claude_files,
         files::pick_project_directory,
         files::add_discovered_file,
+        files::create_missing_file,
         files::pick_schema,
         files::clear_schema,
         files::reveal_managed_file,

@@ -30,6 +30,15 @@
 - Claude Code 2.1.211+ may read `.claude/settings.local.json` from the git repository
   root; ConfigDeck edits the file in the folder you pick and shows a hint (eng R1).
 
+## UI
+- No date/time pickers and no variant selector for heterogeneous (`oneOf`) arrays;
+  those fields fall back to text or raw JSON value editing.
+- Numeric `minimum`/`maximum` and integer-ness are enforced while typing, so an
+  out-of-range number never reaches the save-time warnings.
+- The "was <old value>" hint costs one debounced `preview_draft` call after edits.
+- No preference for the watcher's behavior: a file changed on disk reloads silently
+  when there is no draft and raises the conflict flow when there is one.
+
 ## Platform
 - Linux (Manjaro, GNOME) is the primary target. AppImage built on Manjaro needs a
   recent glibc; use the CI build for portability.

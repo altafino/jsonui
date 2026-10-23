@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { FieldHint } from "../types/generated/FieldHint";
 import type { Api, Events } from "./types";
 
 const call = <T>(cmd: string, args?: Record<string, unknown>) => invoke<T>(cmd, args);
@@ -18,10 +19,15 @@ export const realApi: Api = {
   listDiscoverableClaudeFiles: () => call("list_discoverable_claude_files"),
   pickProjectDirectory: () => call("pick_project_directory"),
   addDiscoveredFile: (candidateId) => call("add_discovered_file", { candidateId }),
+  createMissingFile: (fileId) => call("create_missing_file", { fileId }),
   openDocument: (fileId) => call("open_document", { fileId }),
   reloadDocument: (fileId) => call("reload_document", { fileId }),
   getSubtree: (fileId, pointer, depth) => call("get_subtree", { fileId, pointer, depth }),
-  getFieldHints: (fileId, pointers) => call("get_field_hints", { fileId, pointers }),
+  // A schema boolean has no enum; the field engine keys booleans off ["true", "false"].
+  getFieldHints: async (fileId, pointers) =>
+    (await call<FieldHint[]>("get_field_hints", { fileId, pointers })).map((h) =>
+      h.valueType === "boolean" && !h.enumValues ? { ...h, enumValues: ["true", "false"] } : h,
+    ),
   getPresetInfo: (fileId) => call("get_preset_info", { fileId }),
   applyDraftOperation: (fileId, op) => call("apply_draft_operation", { fileId, op }),
   undoDraftOperation: (fileId) => call("undo_draft_operation", { fileId }),

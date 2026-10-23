@@ -4,7 +4,7 @@ import type { PresetInfo } from "../../types/generated/PresetInfo";
 import { getAt, type J } from "./json";
 
 const blank = (pointer: string): FieldHint => ({
-  pointer, title: null, description: null, enumValues: null, defaultJson: null, format: null, minimum: null, maximum: null,
+  pointer, valueType: null, required: false, title: null, description: null, enumValues: null, defaultJson: null, format: null, minimum: null, maximum: null,
   minLength: null, maxLength: null, pattern: null, secret: false, addableProperties: [], openMap: false, itemSummary: null, sensitive: false,
 });
 

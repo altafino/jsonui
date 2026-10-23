@@ -7,4 +7,8 @@ export type FileStatus = { fileId: string, exists: boolean, readable: boolean, w
 /**
  * Resolved target when `is_symlink`.
  */
-linkTarget: string | null, hardlinkCount: number, sizeBytes: bigint | null, };
+linkTarget: string | null, hardlinkCount: number, sizeBytes: number | null, 
+/**
+ * Parses as an editable document; `None` when unreadable or too large.
+ */
+editable: boolean | null, };

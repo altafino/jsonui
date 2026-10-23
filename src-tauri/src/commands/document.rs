@@ -17,39 +17,41 @@ use crate::core::types::{
 use crate::core::watcher::FilePoller;
 use crate::core::{CoreError, CoreResult, ErrorCode, MAX_EDITABLE_BYTES};
 
-/// Load (or reload) a document from disk into the open set.
-fn load_document(inner: &mut Inner, file_id: &str) -> CoreResult<DocumentSnapshot> {
+/// Load a document from disk into the open set. An already-open session keeps
+/// its draft unless `reload` is set.
+fn load_document(inner: &mut Inner, file_id: &str, reload: bool) -> CoreResult<DocumentSnapshot> {
     let entry = inner.entry(file_id)?;
-    let path = PathBuf::from(&entry.absolute_path);
-    let bytes = persistence::read_checked(&path, MAX_EDITABLE_BYTES)?;
-    let known = persistence::fingerprint(&bytes);
-    let session = DocumentSession::load(file_id, bytes, entry.kind);
-    let preset_id = entry
-        .preset_id
-        .clone()
-        .or_else(|| inner.presets.detect(&path, session.to_value().as_ref()));
-    let user_schema = entry
-        .local_schema_path
-        .as_deref()
-        .and_then(|p| CompiledSchema::load_user(Path::new(p)).ok());
-    let read_only = entry.read_only;
-    let target = crate::core::security::paths::resolve_target(&path)
-        .ok()
-        .map(|r| r.target_path);
-    inner.open.insert(
-        file_id.to_string(),
-        OpenDoc {
-            session,
-            poller: FilePoller::new(&path, known),
-            external_change: None,
-            user_schema,
-            preset_id,
-            target,
-        },
-    );
+    if reload || !inner.open.contains_key(file_id) {
+        let path = PathBuf::from(&entry.absolute_path);
+        let bytes = persistence::read_checked(&path, MAX_EDITABLE_BYTES)?;
+        let known = persistence::fingerprint(&bytes);
+        let session = DocumentSession::load(file_id, bytes, entry.kind);
+        let preset_id = entry
+            .preset_id
+            .clone()
+            .or_else(|| inner.presets.detect(&path, session.to_value().as_ref()));
+        let user_schema = entry
+            .local_schema_path
+            .as_deref()
+            .and_then(|p| CompiledSchema::load_user(Path::new(p)).ok());
+        let target = crate::core::security::paths::resolve_target(&path)
+            .ok()
+            .map(|r| r.target_path);
+        inner.open.insert(
+            file_id.to_string(),
+            OpenDoc {
+                session,
+                poller: FilePoller::new(&path, known),
+                external_change: None,
+                user_schema,
+                preset_id,
+                target,
+            },
+        );
+    }
     let _ = inner.registry.touch_opened(file_id);
     let doc = inner.doc(file_id)?;
-    let mut snapshot = doc.session.snapshot(read_only);
+    let mut snapshot = doc.session.snapshot(entry.read_only);
     if entry.local_schema_path.is_some() && doc.user_schema.is_none() {
         snapshot.diagnostics.push(crate::core::types::Diagnostic {
             severity: Severity::Warning,
@@ -72,7 +74,7 @@ pub fn open_document<R: Runtime>(
     state: State<AppState>,
     file_id: String,
 ) -> CoreResult<DocumentSnapshot> {
-    let snapshot = load_document(&mut state.lock(), &file_id)?;
+    let snapshot = load_document(&mut state.lock(), &file_id, false)?;
     schedule_validation(&app, &file_id, snapshot.revision);
     Ok(snapshot)
 }
@@ -83,7 +85,9 @@ pub fn reload_document<R: Runtime>(
     state: State<AppState>,
     file_id: String,
 ) -> CoreResult<DocumentSnapshot> {
-    open_document(app, state, file_id)
+    let snapshot = load_document(&mut state.lock(), &file_id, true)?;
+    schedule_validation(&app, &file_id, snapshot.revision);
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -291,7 +295,8 @@ fn validator<'a>(
 }
 
 #[tauri::command]
-pub fn save_draft(
+pub fn save_draft<R: Runtime>(
+    app: AppHandle<R>,
     state: State<AppState>,
     file_id: String,
     expected_fingerprint: String,
@@ -332,6 +337,9 @@ pub fn save_draft(
     doc.session.adopt_saved(candidate);
     doc.poller.set_known(outcome.fingerprint.clone());
     doc.external_change = None;
+    let revision = doc.session.revision();
+    drop(inner);
+    schedule_validation(&app, &file_id, revision);
     Ok(SaveResult {
         fingerprint: outcome.fingerprint,
         backup_id: Some(outcome.backup_id),
@@ -431,7 +439,8 @@ pub fn preview_restore(
 }
 
 #[tauri::command]
-pub fn restore_backup(
+pub fn restore_backup<R: Runtime>(
+    app: AppHandle<R>,
     state: State<AppState>,
     file_id: String,
     backup_id: String,
@@ -483,6 +492,9 @@ pub fn restore_backup(
     doc.session.adopt_saved(backup);
     doc.poller.set_known(outcome.fingerprint.clone());
     doc.external_change = None;
+    let revision = doc.session.revision();
+    drop(inner);
+    schedule_validation(&app, &file_id, revision);
     Ok(SaveResult {
         fingerprint: outcome.fingerprint,
         backup_id: Some(outcome.backup_id),

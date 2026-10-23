@@ -7,6 +7,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use super::picker::{PickKind, pick};
 use super::state::AppState;
+use crate::core::document::DocumentSession;
 use crate::core::persistence;
 use crate::core::presets::{ClaudeEnv, discover_claude};
 use crate::core::security::paths::resolve_target;
@@ -67,6 +68,9 @@ fn file_status(doc: &ManagedDocument) -> FileStatus {
             .map(|r| r.hardlink_count as u32)
             .unwrap_or(1),
         size_bytes: meta.map(|m| m.len()),
+        editable: persistence::read_checked(path, crate::core::MAX_EDITABLE_BYTES)
+            .ok()
+            .map(|b| DocumentSession::load(&doc.id, b, doc.kind).is_editable()),
     }
 }
 
@@ -228,19 +232,8 @@ pub fn add_discovered_file(
                 .with_remediation("Run discovery again.")
         })?;
     if !path.exists() {
-        // Explicit "Create file" for a missing candidate (design DD5); never overwrites.
-        let create = || -> std::io::Result<()> {
-            if let Some(dir) = path.parent() {
-                std::fs::create_dir_all(dir)?;
-            }
-            let mut f = std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&path)?;
-            std::io::Write::write_all(&mut f, b"{}\n")?;
-            f.sync_all()
-        };
-        create().map_err(|e| CoreError::from_io(&e, &path))?;
+        // Explicit "Create file" for a missing candidate (design DD5).
+        create_empty(&path)?;
     }
     // Every discovery candidate is a Claude Code settings file, including a
     // relocated CLAUDE_CONFIG_DIR that path-based detection cannot recognize.
@@ -248,6 +241,38 @@ pub fn add_discovered_file(
     inner
         .registry
         .add(&path, None, Some(scope), Some(CLAUDE_PRESET.into()))
+}
+
+/// Write `{}` to a path that does not exist yet; never overwrites.
+fn create_empty(path: &Path) -> CoreResult<()> {
+    let create = || -> std::io::Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)?;
+        std::io::Write::write_all(&mut f, b"{}\n")?;
+        f.sync_all()
+    };
+    create().map_err(|e| CoreError::from_io(&e, path))
+}
+
+/// Recreate a registered file that went missing, as `{}` at its own path.
+#[tauri::command]
+pub fn create_missing_file(state: State<AppState>, file_id: String) -> CoreResult<()> {
+    let mut inner = state.lock();
+    let entry = inner.entry(&file_id)?;
+    if entry.read_only {
+        return Err(CoreError::new(
+            ErrorCode::ReadOnly,
+            "This file is read-only in ConfigDeck",
+        ));
+    }
+    create_empty(Path::new(&entry.absolute_path))?;
+    inner.open.remove(&file_id);
+    Ok(())
 }
 
 #[tauri::command]

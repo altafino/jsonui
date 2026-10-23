@@ -11,7 +11,7 @@ const leaf = (pointer: string, kind: TreeNode["kind"], text: string, changed = f
 const obj = (pointer: string, children: TreeNode[] | null, changed = false, count = children?.length ?? 0): TreeNode => ({
   pointer, key: pointer.split("/").pop() || null, index: null, kind: "object", text: null, childCount: count, children, changed,
 });
-const res = (p: Partial<EditResult>): EditResult => ({ revision: 2n, changed: [], removed: [], reshaped: [], dirtyCount: 1, canUndo: true, canRedo: false, diagnostics: [], ...p });
+const res = (p: Partial<EditResult>): EditResult => ({ revision: 2, changed: [], removed: [], reshaped: [], dirtyCount: 1, canUndo: true, canRedo: false, diagnostics: [], ...p });
 
 function seed(): NodeCache {
   const c: NodeCache = {};

@@ -203,7 +203,7 @@ export function TextControl({ node, hint, labelId, descId, disabled }: { node: C
 export function NumberControl({ node, hint, labelId, descId, disabled }: { node: CachedNode; hint?: FieldHint; labelId: string; descId?: string; disabled?: boolean }) {
   const { fileId } = useEnv();
   const value = node.text ?? "";
-  const rules = { integer: hint?.format === "integer", minimum: hint?.minimum, maximum: hint?.maximum };
+  const rules = { integer: hint?.valueType === "integer" || hint?.format === "integer", minimum: hint?.minimum, maximum: hint?.maximum };
   const check = (t: string) => checkNumberText(t, rules);
   const d = useDraftText(value, (v) => {
     if (check(v).ok) void setValue(fileId, node.pointer, v.trim());

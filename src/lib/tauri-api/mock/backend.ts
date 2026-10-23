@@ -202,12 +202,12 @@ export function createMockBackend(options: MockOptions = {}) {
     const o = openOf(fileId);
     const d = diskOf(fileId);
     return {
-      fileId, kind: e.kind, fingerprint: o.fingerprint, sizeBytes: BigInt(o.originalText.length), hasBom: false, lineEnding: "lf",
+      fileId, kind: e.kind, fingerprint: o.fingerprint, sizeBytes: o.originalText.length, hasBom: false, lineEnding: "lf",
       editable: !!o.draft, readOnly: e.readOnly || !d.writable,
       root: o.draft ? toTree(o.draft, o.original!, "", 1) : null,
       sourceView: o.draft ? null : sourceViewFor(fileId, o),
       diagnostics: [...baseDiagnostics(fileId, o), ...schemaDiagnostics(fileId, o)],
-      revision: BigInt(o.revision), dirtyCount: dirtyCount(o), canUndo: o.ops.length > 0, canRedo: o.redo.length > 0,
+      revision: o.revision, dirtyCount: dirtyCount(o), canUndo: o.ops.length > 0, canRedo: o.redo.length > 0,
     };
   }
 
@@ -258,7 +258,7 @@ export function createMockBackend(options: MockOptions = {}) {
     for (const x of semanticDiff(o.original!, before)) ancestorList(x.pointer).forEach((p) => getAt(after, parsePointer(p)) && pts.add(p));
     const changed = [...pts].filter((p) => getAt(after, parsePointer(p))).map((p) => toTree(after, o.original!, p, 1));
     scheduleDiagnostics(o);
-    return { revision: BigInt(o.revision), changed, removed, reshaped, dirtyCount: dirtyCount(o), canUndo: o.ops.length > 0, canRedo: o.redo.length > 0, diagnostics: [] };
+    return { revision: o.revision, changed, removed, reshaped, dirtyCount: dirtyCount(o), canUndo: o.ops.length > 0, canRedo: o.redo.length > 0, diagnostics: [] };
   }
 
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -266,7 +266,7 @@ export function createMockBackend(options: MockOptions = {}) {
     const fileId = [...opens.entries()].find(([, v]) => v === o)?.[0];
     if (!fileId) return;
     clearTimeout(timers.get(fileId));
-    timers.set(fileId, setTimeout(() => emit("draft-diagnostics", { fileId, revision: BigInt(o.revision), diagnostics: schemaDiagnostics(fileId, o) }), 150));
+    timers.set(fileId, setTimeout(() => emit("draft-diagnostics", { fileId, revision: o.revision, diagnostics: schemaDiagnostics(fileId, o) }), 150));
   }
 
   function guardEditable(fileId: string, o: Open) {
@@ -352,7 +352,7 @@ export function createMockBackend(options: MockOptions = {}) {
       backupId = id("b");
       const list = backups.get(fileId) ?? [];
       list.unshift({
-        entry: { id: backupId, fileId, createdAt: new Date().toISOString(), sizeBytes: BigInt(d.text.length), changeCount, location: `~/.local/share/configdeck/backups/${fileId}/${backupId}.json` },
+        entry: { id: backupId, fileId, createdAt: new Date().toISOString(), sizeBytes: d.text.length, changeCount, location: `~/.local/share/configdeck/backups/${fileId}/${backupId}.json` },
         text: d.text,
       });
       backups.set(fileId, list.slice(0, prefs.backupRetention));
@@ -368,7 +368,7 @@ export function createMockBackend(options: MockOptions = {}) {
     async getFileStatuses() {
       return registry.map<FileStatus>((d) => {
         const k = diskOf(d.id);
-        return { fileId: d.id, exists: k.exists, readable: k.readable, writable: k.writable, isSymlink: k.isSymlink, linkTarget: k.isSymlink ? "/srv/shared/config.json" : null, hardlinkCount: k.hardlinks, sizeBytes: k.exists ? BigInt(k.text.length) : null };
+        return { fileId: d.id, exists: k.exists, readable: k.readable, writable: k.writable, isSymlink: k.isSymlink, linkTarget: k.isSymlink ? "/srv/shared/config.json" : null, hardlinkCount: k.hardlinks, sizeBytes: k.exists ? k.text.length : null, editable: k.exists ? parseJson(k.text, d.kind === "jsonc").ok : null };
       });
     },
     async getStartupNotices() {
@@ -409,6 +409,13 @@ export function createMockBackend(options: MockOptions = {}) {
       d.exists = true;
       opens.delete(fileId);
       return { ...e };
+    },
+    async createMissingFile(fileId) {
+      const d = diskOf(fileId);
+      if (d.exists) throw coreError("IO", "The file already exists");
+      d.exists = true;
+      d.text = "{}\n";
+      opens.delete(fileId);
     },
     async confirmLinkWrite(fileId) {
       const e = entry(fileId);
@@ -549,7 +556,7 @@ export function createMockBackend(options: MockOptions = {}) {
       o.revision++;
       o.conflict = false;
       scheduleDiagnostics(o);
-      return { revision: BigInt(o.revision), changed: [toTree(next, parsed.value, "", 1)], removed: [], reshaped: [""], dirtyCount: dirtyCount(o), canUndo: ops.length > 0, canRedo: false, diagnostics: [] };
+      return { revision: o.revision, changed: [toTree(next, parsed.value, "", 1)], removed: [], reshaped: [""], dirtyCount: dirtyCount(o), canUndo: ops.length > 0, canRedo: false, diagnostics: [] };
     },
     async saveDraftAsCopy(fileId) {
       const e = entry(fileId);
