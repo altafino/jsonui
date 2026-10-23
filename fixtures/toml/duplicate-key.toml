@@ -1,0 +1,4 @@
+name = "svc"
+api_key = "sk-test-dup-0001"
+port = 1
+api_key = "sk-test-dup-0002"
