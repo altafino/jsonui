@@ -1930,3 +1930,16 @@ fn multiline_edits_keep_formatting_clean() {
         "{\n  \"l\": [\n    \"b\", // cb\n    \"c\",\n  ],\n}\n"
     );
 }
+
+#[test]
+fn reapply_refuses_when_disk_inserted_an_earlier_array_item() {
+    // The draft edits objs[0]; on disk a new item was inserted at the front, so
+    // objs[0] is now a different item. Reapplying by index would edit it.
+    let mut d = load_text(MODEL_DOC, DocKind::Json);
+    d.apply(set("/objs/0/on", "false")).unwrap();
+    let disk = MODEL_DOC.replace(
+        "  \"objs\": [\n",
+        "  \"objs\": [\n    { \"name\": \"z\", \"on\": true },\n",
+    );
+    assert!(!d.conflict(disk.as_bytes(), &no_secrets).can_reapply);
+}

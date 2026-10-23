@@ -63,8 +63,11 @@ fn invalid(pointer: &str, why: &str) -> CoreError {
 /// Do two pointers touch the same data? (eng R16, R18)
 ///
 /// True when equal, when either is a segment-wise prefix of the other, or
-/// when both address items of the same array (`is_array` reports whether a
-/// pointer addresses an array; it is called with the shared parent pointer).
+/// when they diverge at an index of the same array and either one addresses
+/// a whole item there: removing or inserting an item shifts its siblings, so
+/// `/list/0` overlaps `/list/1/y`, while `/list/0/x` and `/list/1/y` do not
+/// (`is_array` reports whether a pointer addresses an array; it is called
+/// with the shared parent pointer).
 /// Segment-aware: `/env/A` does not overlap `/env/AB`. Pointers that fail to
 /// parse are treated as overlapping everything (the safe answer).
 pub fn pointers_overlap(a: &str, b: &str, is_array: &dyn Fn(&str) -> bool) -> bool {
@@ -75,10 +78,8 @@ pub fn pointers_overlap(a: &str, b: &str, is_array: &dyn Fn(&str) -> bool) -> bo
     if sa[..common] == sb[..common] {
         return true; // equal or one is a prefix of the other (root is a prefix of all)
     }
-    // Siblings: same length, same parent, differing last segment.
-    sa.len() == sb.len()
-        && sa[..sa.len() - 1] == sb[..sb.len() - 1]
-        && is_array(&to_pointer(&sa[..sa.len() - 1]))
+    let k = sa.iter().zip(&sb).take_while(|(x, y)| x == y).count();
+    (sa.len() == k + 1 || sb.len() == k + 1) && is_array(&to_pointer(&sa[..k]))
 }
 
 #[cfg(test)]
@@ -125,6 +126,9 @@ mod tests {
             ("/list/0", "/list/1", true),
             ("/list/0", "/list", true),
             ("/list/0/x", "/list/1/y", false),
+            ("/list/0", "/list/1/y", true),
+            ("/a/list/0/x", "/a/list/3", true),
+            ("/a/list/0/x/y", "/a/list/3/z", false),
             ("/env/A", "/env/B", false),
             ("/a/list/2", "/a/list/9", true),
             ("/x/list/2", "/y/list/2", false),
