@@ -45,7 +45,6 @@ portable AppImage use the CI artifact built on Ubuntu 22.04
 | Frontend type check / unit tests | `pnpm typecheck`, `pnpm test` |
 | UI flows (browser, mocked backend) | `pnpm test:e2e` |
 | Real-app journeys (WebdriverIO + tauri-driver) | `pnpm build:app` once, then `pnpm test:wdio` (needs `cargo install tauri-driver --locked`, `WebKitWebDriver`, and an X display: `xvfb-run -a pnpm test:wdio`; see `tests/wdio/`) |
-| Real-app flows (WebdriverIO) | `pnpm test:wdio` |
 
 Layout: `src-tauri/src/core/` is the Tauri-free engine (document, patch,
 persistence, backup, registry, schema, presets, security, watcher);
