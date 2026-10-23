@@ -7,6 +7,13 @@ All notable changes to ConfigDeck are documented here. The format follows
 
 ### Added
 
+- **Remove buttons on every setting**, not only in the row's hover menu.
+- **Remove several items at once:** **Select** in the toolbar puts checkboxes on
+  settings, sections, list items and map entries; **Remove selected** removes them as
+  one step that a single Undo restores.
+- **Protected settings:** settings a schema marks `required`, or a preset lists in
+  `protectedPointers`, show "Required" and can't be removed or renamed. ConfigDeck's
+  backend refuses it too.
 - **YAML (`.yaml`, `.yml`) and TOML (`.toml`) files**, edited as forms with the same
   guarantees as JSON: only the touched value's bytes change, and comments, quoting,
   ordering and line endings stay as they were. Undo, review, backups, conflict
