@@ -334,7 +334,10 @@ mod unix {
             path: &link,
             expected: &expected,
             candidate: b"new\n",
-            confirmations: LinkConfirmations { symlink: true, hardlink: false },
+            confirmations: LinkConfirmations {
+                symlink: true,
+                hardlink: false,
+            },
             expected_target: Some(&loaded_target),
             validate: &|_| Ok(()),
             backups: &fx.backups,

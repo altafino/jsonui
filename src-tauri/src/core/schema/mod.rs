@@ -147,14 +147,8 @@ fn message(e: &jsonschema::ValidationError<'_>) -> String {
     }
 }
 
-/// Decode an RFC 6901 pointer into segments (`""` is the root → no segments).
+/// Decode an RFC 6901 pointer into segments (`""` is the root → no segments);
+/// malformed pointers decode to the root.
 pub(crate) fn decode_pointer(pointer: &str) -> Vec<String> {
-    if pointer.is_empty() {
-        return Vec::new();
-    }
-    pointer
-        .split('/')
-        .skip(1)
-        .map(|s| s.replace("~1", "/").replace("~0", "~"))
-        .collect()
+    crate::core::patch::parse_pointer(pointer).unwrap_or_default()
 }

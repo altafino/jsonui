@@ -7,10 +7,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use super::state::AppState;
+use crate::core::MAX_EDITABLE_BYTES;
 use crate::core::persistence;
 use crate::core::types::Diagnostic;
 use crate::core::watcher::PollOutcome;
-use crate::core::MAX_EDITABLE_BYTES;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 const VALIDATION_DEBOUNCE: Duration = Duration::from_millis(150);
@@ -46,9 +46,11 @@ struct DraftDiagnostics {
 }
 
 pub fn start_poller<R: Runtime>(app: AppHandle<R>) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(POLL_INTERVAL);
-        poll_once(&app);
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(POLL_INTERVAL);
+            poll_once(&app);
+        }
     });
 }
 
@@ -57,14 +59,28 @@ fn poll_once<R: Runtime>(app: &AppHandle<R>) {
     let mut inner = state.lock();
     let ids: Vec<String> = inner.open.keys().cloned().collect();
     for file_id in ids {
-        let Some(doc) = inner.open.get_mut(&file_id) else { continue };
+        let Some(doc) = inner.open.get_mut(&file_id) else {
+            continue;
+        };
         match doc.poller.check() {
             PollOutcome::Unchanged => {}
             PollOutcome::Missing => {
-                let _ = app.emit("managed-file-missing", FileRef { file_id: file_id.clone() });
+                let _ = app.emit(
+                    "managed-file-missing",
+                    FileRef {
+                        file_id: file_id.clone(),
+                    },
+                );
             }
             PollOutcome::AccessChanged { readable, writable } => {
-                let _ = app.emit("managed-file-access-changed", AccessChanged { file_id: file_id.clone(), readable, writable });
+                let _ = app.emit(
+                    "managed-file-access-changed",
+                    AccessChanged {
+                        file_id: file_id.clone(),
+                        readable,
+                        writable,
+                    },
+                );
             }
             PollOutcome::Changed(fingerprint) => {
                 let dirty = doc.session.is_dirty();
@@ -73,17 +89,27 @@ fn poll_once<R: Runtime>(app: &AppHandle<R>) {
                     doc.external_change = Some(fingerprint.clone());
                 } else {
                     // No draft: reload in place (A15); UI refetches the snapshot on the event.
-                    let Ok(entry) = inner.entry(&file_id) else { continue };
-                    if let Ok(bytes) = persistence::read_checked(std::path::Path::new(&entry.absolute_path), MAX_EDITABLE_BYTES) {
-                        if let Some(doc) = inner.open.get_mut(&file_id) {
-                            doc.session = crate::core::document::DocumentSession::load(&file_id, bytes, entry.kind);
-                            doc.poller.set_known(fingerprint.clone());
-                        }
+                    let Ok(entry) = inner.entry(&file_id) else {
+                        continue;
+                    };
+                    if let Ok(bytes) = persistence::read_checked(
+                        std::path::Path::new(&entry.absolute_path),
+                        MAX_EDITABLE_BYTES,
+                    ) && let Some(doc) = inner.open.get_mut(&file_id)
+                    {
+                        doc.session = crate::core::document::DocumentSession::load(
+                            &file_id, bytes, entry.kind,
+                        );
+                        doc.poller.set_known(fingerprint.clone());
                     }
                 }
                 let _ = app.emit(
                     "managed-file-external-change",
-                    ExternalChange { file_id: file_id.clone(), fingerprint, has_unsaved_changes: dirty },
+                    ExternalChange {
+                        file_id: file_id.clone(),
+                        fingerprint,
+                        has_unsaved_changes: dirty,
+                    },
                 );
             }
         }
@@ -103,9 +129,18 @@ pub fn schedule_validation<R: Runtime>(app: &AppHandle<R>, file_id: &str, revisi
         if doc.session.revision() != revision {
             return;
         }
-        let Some(value) = doc.session.to_value() else { return };
+        let Some(value) = doc.session.to_value() else {
+            return;
+        };
         let diagnostics = inner.schema_diagnostics(doc, &value);
         drop(inner);
-        let _ = app.emit("draft-diagnostics", DraftDiagnostics { file_id, revision, diagnostics });
+        let _ = app.emit(
+            "draft-diagnostics",
+            DraftDiagnostics {
+                file_id,
+                revision,
+                diagnostics,
+            },
+        );
     });
 }

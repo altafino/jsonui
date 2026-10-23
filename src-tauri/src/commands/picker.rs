@@ -31,7 +31,9 @@ pub fn pick<R: Runtime>(app: &AppHandle<R>, kind: PickKind) -> Option<PathBuf> {
             .set_file_name(suggested_name)
             .add_filter("JSON / JSONC", &["json", "jsonc"])
             .blocking_save_file(),
-        PickKind::Folder => dialog.set_title("Choose project folder").blocking_pick_folder(),
+        PickKind::Folder => dialog
+            .set_title("Choose project folder")
+            .blocking_pick_folder(),
         PickKind::Schema => dialog
             .set_title("Associate JSON Schema")
             .add_filter("JSON Schema", &["json"])
@@ -49,5 +51,9 @@ fn test_pick() -> Option<Option<PathBuf>> {
     let first = lines.next()?.trim().to_string();
     let rest: Vec<&str> = lines.collect();
     let _ = std::fs::write(&script, rest.join("\n"));
-    Some(if first.is_empty() { None } else { Some(PathBuf::from(first)) })
+    Some(if first.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(first))
+    })
 }

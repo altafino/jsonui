@@ -46,7 +46,14 @@ pub struct CoreError {
 
 impl CoreError {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
-        Self { code, message: message.into(), path: None, line: None, column: None, remediation: None }
+        Self {
+            code,
+            message: message.into(),
+            path: None,
+            line: None,
+            column: None,
+            remediation: None,
+        }
     }
 
     pub fn with_path(mut self, path: impl Into<String>) -> Self {

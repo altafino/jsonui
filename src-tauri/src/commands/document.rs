@@ -5,14 +5,14 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Runtime, State};
 
 use super::background::schedule_validation;
-use super::picker::{pick, PickKind};
+use super::picker::{PickKind, pick};
 use super::state::{AppState, Inner, OpenDoc};
 use crate::core::document::DocumentSession;
-use crate::core::persistence::{self, now_rfc3339, LinkConfirmations, SaveRequest};
+use crate::core::persistence::{self, LinkConfirmations, SaveRequest, now_rfc3339};
 use crate::core::schema::CompiledSchema;
 use crate::core::types::{
-    BackupEntry, ChangeSummary, ConflictInfo, DiagnosticSource, DocumentSnapshot, DraftOp, EditResult, FieldHint,
-    ManagedDocument, PresetInfo, SaveResult, Severity, TreeNode,
+    BackupEntry, ChangeSummary, ConflictInfo, DiagnosticSource, DocumentSnapshot, DraftOp,
+    EditResult, FieldHint, ManagedDocument, PresetInfo, SaveResult, Severity, TreeNode,
 };
 use crate::core::watcher::FilePoller;
 use crate::core::{CoreError, CoreResult, ErrorCode, MAX_EDITABLE_BYTES};
@@ -24,13 +24,28 @@ fn load_document(inner: &mut Inner, file_id: &str) -> CoreResult<DocumentSnapsho
     let bytes = persistence::read_checked(&path, MAX_EDITABLE_BYTES)?;
     let known = persistence::fingerprint(&bytes);
     let session = DocumentSession::load(file_id, bytes, entry.kind);
-    let preset_id = entry.preset_id.clone().or_else(|| inner.presets.detect(&path, session.to_value().as_ref()));
-    let user_schema = entry.local_schema_path.as_deref().and_then(|p| CompiledSchema::load_user(Path::new(p)).ok());
+    let preset_id = entry
+        .preset_id
+        .clone()
+        .or_else(|| inner.presets.detect(&path, session.to_value().as_ref()));
+    let user_schema = entry
+        .local_schema_path
+        .as_deref()
+        .and_then(|p| CompiledSchema::load_user(Path::new(p)).ok());
     let read_only = entry.read_only;
-    let target = crate::core::security::paths::resolve_target(&path).ok().map(|r| r.target_path);
+    let target = crate::core::security::paths::resolve_target(&path)
+        .ok()
+        .map(|r| r.target_path);
     inner.open.insert(
         file_id.to_string(),
-        OpenDoc { session, poller: FilePoller::new(&path, known), external_change: None, user_schema, preset_id, target },
+        OpenDoc {
+            session,
+            poller: FilePoller::new(&path, known),
+            external_change: None,
+            user_schema,
+            preset_id,
+            target,
+        },
     );
     let _ = inner.registry.touch_opened(file_id);
     let doc = inner.doc(file_id)?;
@@ -40,7 +55,9 @@ fn load_document(inner: &mut Inner, file_id: &str) -> CoreResult<DocumentSnapsho
             severity: Severity::Warning,
             source: DiagnosticSource::UserSchema,
             code: "SCHEMA_UNAVAILABLE".into(),
-            message: "The associated schema could not be loaded; generic editing is still available.".into(),
+            message:
+                "The associated schema could not be loaded; generic editing is still available."
+                    .into(),
             pointer: None,
             line: None,
             column: None,
@@ -50,46 +67,76 @@ fn load_document(inner: &mut Inner, file_id: &str) -> CoreResult<DocumentSnapsho
 }
 
 #[tauri::command]
-pub fn open_document<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String) -> CoreResult<DocumentSnapshot> {
+pub fn open_document<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+) -> CoreResult<DocumentSnapshot> {
     let snapshot = load_document(&mut state.lock(), &file_id)?;
     schedule_validation(&app, &file_id, snapshot.revision);
     Ok(snapshot)
 }
 
 #[tauri::command]
-pub fn reload_document<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String) -> CoreResult<DocumentSnapshot> {
+pub fn reload_document<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+) -> CoreResult<DocumentSnapshot> {
     open_document(app, state, file_id)
 }
 
 #[tauri::command]
-pub fn get_subtree(state: State<AppState>, file_id: String, pointer: String, depth: u32) -> CoreResult<TreeNode> {
-    state.lock().doc(&file_id)?.session.subtree(&pointer, depth.min(8))
+pub fn get_subtree(
+    state: State<AppState>,
+    file_id: String,
+    pointer: String,
+    depth: u32,
+) -> CoreResult<TreeNode> {
+    state
+        .lock()
+        .doc(&file_id)?
+        .session
+        .subtree(&pointer, depth.min(8))
 }
 
 #[tauri::command]
-pub fn get_field_hints(state: State<AppState>, file_id: String, pointers: Vec<String>) -> CoreResult<Vec<FieldHint>> {
+pub fn get_field_hints(
+    state: State<AppState>,
+    file_id: String,
+    pointers: Vec<String>,
+) -> CoreResult<Vec<FieldHint>> {
     let inner = state.lock();
     let doc = inner.doc(&file_id)?;
-    let Some(value) = doc.session.to_value() else { return Ok(Vec::new()) };
+    let Some(value) = doc.session.to_value() else {
+        return Ok(Vec::new());
+    };
     let mut hints: Vec<FieldHint> = match &doc.user_schema {
         Some(schema) => schema.hints(&value, &pointers),
-        None => match doc.preset_id.as_deref().and_then(|id| inner.presets.schema(id)) {
+        None => match doc
+            .preset_id
+            .as_deref()
+            .and_then(|id| inner.presets.schema(id))
+        {
             Some(schema) => schema.hints(&value, &pointers),
-            None => pointers.iter().map(|p| FieldHint { pointer: p.clone(), ..Default::default() }).collect(),
+            None => pointers
+                .iter()
+                .map(|p| FieldHint {
+                    pointer: p.clone(),
+                    ..Default::default()
+                })
+                .collect(),
         },
     };
     if let Some(id) = doc.preset_id.as_deref() {
-        // Preset UI hints fill gaps the schema leaves (descriptions, itemSummary, sensitive, secret).
-        for ui in inner.presets.ui_hints(id, &pointers) {
-            if let Some(h) = hints.iter_mut().find(|h| h.pointer == ui.pointer) {
-                h.description = h.description.take().or(ui.description);
-                h.item_summary = h.item_summary.take().or(ui.item_summary);
-                h.sensitive |= ui.sensitive;
-                h.secret |= ui.secret;
-                if h.title.is_none() {
-                    h.title = ui.title;
-                }
-            }
+        // Preset layer overlays the schema layer: its `Some` fields win, flags are OR-ed.
+        for (h, ui) in hints.iter_mut().zip(inner.presets.ui_hints(id, &pointers)) {
+            h.description = ui.description.or(h.description.take());
+            h.item_summary = ui.item_summary.or(h.item_summary.take());
+            h.title = ui.title.or(h.title.take());
+            h.secret |= ui.secret;
+            h.sensitive |= ui.sensitive;
+            h.open_map |= ui.open_map;
         }
     }
     Ok(hints)
@@ -110,7 +157,10 @@ fn edit<R: Runtime>(
 ) -> CoreResult<EditResult> {
     let mut inner = state.lock();
     if inner.entry(file_id)?.read_only {
-        return Err(CoreError::new(ErrorCode::ReadOnly, "This file is read-only in ConfigDeck"));
+        return Err(CoreError::new(
+            ErrorCode::ReadOnly,
+            "This file is read-only in ConfigDeck",
+        ));
     }
     let result = f(&mut inner.doc_mut(file_id)?.session)?;
     drop(inner);
@@ -119,22 +169,40 @@ fn edit<R: Runtime>(
 }
 
 #[tauri::command]
-pub fn apply_draft_operation<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String, op: DraftOp) -> CoreResult<EditResult> {
+pub fn apply_draft_operation<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+    op: DraftOp,
+) -> CoreResult<EditResult> {
     edit(&app, &state, &file_id, |s| s.apply(op))
 }
 
 #[tauri::command]
-pub fn undo_draft_operation<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String) -> CoreResult<EditResult> {
+pub fn undo_draft_operation<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+) -> CoreResult<EditResult> {
     edit(&app, &state, &file_id, |s| s.undo())
 }
 
 #[tauri::command]
-pub fn redo_draft_operation<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String) -> CoreResult<EditResult> {
+pub fn redo_draft_operation<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+) -> CoreResult<EditResult> {
     edit(&app, &state, &file_id, |s| s.redo())
 }
 
 #[tauri::command]
-pub fn revert_change<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String, op_index: u32) -> CoreResult<EditResult> {
+pub fn revert_change<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+    op_index: u32,
+) -> CoreResult<EditResult> {
     edit(&app, &state, &file_id, |s| s.revert_op(op_index))
 }
 
@@ -152,7 +220,12 @@ fn summary_for(inner: &Inner, file_id: &str) -> CoreResult<ChangeSummary> {
     let doc = inner.doc(file_id)?;
     let is_secret = inner.secret_predicate(doc.preset_id.clone());
     let mut summary = doc.session.review(&is_secret);
-    summary.errors.extend(doc.session.diagnostics().into_iter().filter(|d| d.severity == Severity::Error));
+    summary.errors.extend(
+        doc.session
+            .diagnostics()
+            .into_iter()
+            .filter(|d| d.severity == Severity::Error),
+    );
     if let Some(value) = doc.session.to_value() {
         for d in inner.schema_diagnostics(doc, &value) {
             match d.severity {
@@ -170,27 +243,47 @@ pub fn preview_draft(state: State<AppState>, file_id: String) -> CoreResult<Chan
 }
 
 fn link_confirmations(entry: &ManagedDocument) -> LinkConfirmations {
-    LinkConfirmations { symlink: entry.link_write_confirmed, hardlink: entry.hardlink_write_confirmed }
+    LinkConfirmations {
+        symlink: entry.link_write_confirmed,
+        hardlink: entry.hardlink_write_confirmed,
+    }
 }
 
 /// Validator for candidate bytes (spec §10 steps 6-7): reparse in the right
 /// mode, then schema (user errors block; preset warnings need confirmation).
-fn validator<'a>(inner: &'a Inner, file_id: &'a str, kind: crate::core::types::DocKind, accept_warnings: bool) -> impl Fn(&[u8]) -> CoreResult<()> + 'a {
+fn validator<'a>(
+    inner: &'a Inner,
+    file_id: &'a str,
+    kind: crate::core::types::DocKind,
+    accept_warnings: bool,
+) -> impl Fn(&[u8]) -> CoreResult<()> + 'a {
     move |candidate: &[u8]| {
         let check = DocumentSession::load(file_id, candidate.to_vec(), kind);
         if !check.is_editable() {
-            return Err(CoreError::new(ErrorCode::InvalidJson, "The edited document would not be valid; nothing was written"));
+            return Err(CoreError::new(
+                ErrorCode::InvalidJson,
+                "The edited document would not be valid; nothing was written",
+            ));
         }
         let doc = inner.doc(file_id)?;
         if let Some(value) = check.to_value() {
             let diags = inner.schema_diagnostics(doc, &value);
-            let errors = diags.iter().filter(|d| d.severity == Severity::Error).count();
+            let errors = diags
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .count();
             let warnings = diags.len() - errors;
             if errors > 0 {
-                return Err(CoreError::new(ErrorCode::SchemaValidationFailed, format!("{errors} schema error(s) must be fixed before saving")));
+                return Err(CoreError::new(
+                    ErrorCode::SchemaValidationFailed,
+                    format!("{errors} schema error(s) must be fixed before saving"),
+                ));
             }
             if warnings > 0 && !accept_warnings {
-                return Err(CoreError::new(ErrorCode::PresetWarningsRequireConfirmation, format!("{warnings} preset warning(s)")));
+                return Err(CoreError::new(
+                    ErrorCode::PresetWarningsRequireConfirmation,
+                    format!("{warnings} preset warning(s)"),
+                ));
             }
         }
         Ok(())
@@ -198,15 +291,26 @@ fn validator<'a>(inner: &'a Inner, file_id: &'a str, kind: crate::core::types::D
 }
 
 #[tauri::command]
-pub fn save_draft(state: State<AppState>, file_id: String, expected_fingerprint: String, accept_warnings: bool) -> CoreResult<SaveResult> {
+pub fn save_draft(
+    state: State<AppState>,
+    file_id: String,
+    expected_fingerprint: String,
+    accept_warnings: bool,
+) -> CoreResult<SaveResult> {
     let mut inner = state.lock();
     let entry = inner.entry(&file_id)?;
     if entry.read_only {
-        return Err(CoreError::new(ErrorCode::ReadOnly, "This file is read-only in ConfigDeck"));
+        return Err(CoreError::new(
+            ErrorCode::ReadOnly,
+            "This file is read-only in ConfigDeck",
+        ));
     }
     let doc = inner.doc(&file_id)?;
     if !doc.session.is_dirty() {
-        return Err(CoreError::new(ErrorCode::InvalidOperation, "No unsaved changes"));
+        return Err(CoreError::new(
+            ErrorCode::InvalidOperation,
+            "No unsaved changes",
+        ));
     }
     let candidate = doc.session.candidate_bytes();
     let change_count = doc.session.ops().len() as u32;
@@ -228,7 +332,11 @@ pub fn save_draft(state: State<AppState>, file_id: String, expected_fingerprint:
     doc.session.adopt_saved(candidate);
     doc.poller.set_known(outcome.fingerprint.clone());
     doc.external_change = None;
-    Ok(SaveResult { fingerprint: outcome.fingerprint, backup_id: Some(outcome.backup_id), saved_at: now_rfc3339() })
+    Ok(SaveResult {
+        fingerprint: outcome.fingerprint,
+        backup_id: Some(outcome.backup_id),
+        saved_at: now_rfc3339(),
+    })
 }
 
 fn disk_bytes(inner: &Inner, file_id: &str) -> CoreResult<Vec<u8>> {
@@ -246,7 +354,11 @@ pub fn get_conflict(state: State<AppState>, file_id: String) -> CoreResult<Confl
 }
 
 #[tauri::command]
-pub fn reapply_draft<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file_id: String) -> CoreResult<EditResult> {
+pub fn reapply_draft<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+) -> CoreResult<EditResult> {
     let mut inner = state.lock();
     let disk = disk_bytes(&inner, &file_id)?;
     let fp = persistence::fingerprint(&disk);
@@ -260,7 +372,11 @@ pub fn reapply_draft<R: Runtime>(app: AppHandle<R>, state: State<AppState>, file
 }
 
 #[tauri::command]
-pub async fn save_draft_as_copy<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>, file_id: String) -> CoreResult<Option<ManagedDocument>> {
+pub async fn save_draft_as_copy<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    file_id: String,
+) -> CoreResult<Option<ManagedDocument>> {
     let (candidate, name) = {
         let inner = state.lock();
         let entry = inner.entry(&file_id)?;
@@ -270,7 +386,14 @@ pub async fn save_draft_as_copy<R: Runtime>(app: AppHandle<R>, state: State<'_, 
             .unwrap_or_else(|| "copy.json".into());
         (inner.doc(&file_id)?.session.candidate_bytes(), name)
     };
-    let Some(path) = pick(&app, PickKind::SaveJson { suggested_name: name }) else { return Ok(None) };
+    let Some(path) = pick(
+        &app,
+        PickKind::SaveJson {
+            suggested_name: name,
+        },
+    ) else {
+        return Ok(None);
+    };
     persistence::atomic_write(&path, &candidate, false)?;
     let mut inner = state.lock();
     let preset = inner.presets.detect(&path, None);
@@ -283,26 +406,50 @@ pub fn list_backups(state: State<AppState>, file_id: String) -> CoreResult<Vec<B
 }
 
 #[tauri::command]
-pub fn preview_restore(state: State<AppState>, file_id: String, backup_id: String) -> CoreResult<ChangeSummary> {
+pub fn preview_restore(
+    state: State<AppState>,
+    file_id: String,
+    backup_id: String,
+) -> CoreResult<ChangeSummary> {
     let inner = state.lock();
     let backup = inner.backups.read(&file_id, &backup_id)?;
     let doc = inner.doc(&file_id)?;
     let is_secret = inner.secret_predicate(doc.preset_id.clone());
     // Current file vs backup, expressed as the "disk side" of a conflict diff.
-    let current = DocumentSession::load(&file_id, doc.session.original_bytes().to_vec(), inner.entry(&file_id)?.kind);
+    let current = DocumentSession::load(
+        &file_id,
+        doc.session.original_bytes().to_vec(),
+        inner.entry(&file_id)?.kind,
+    );
     let diff = current.conflict(&backup, &is_secret);
-    Ok(ChangeSummary { changes: diff.disk_changes, hunks: Vec::new(), warnings: Vec::new(), errors: Vec::new() })
+    Ok(ChangeSummary {
+        changes: diff.disk_changes,
+        hunks: Vec::new(),
+        warnings: Vec::new(),
+        errors: Vec::new(),
+    })
 }
 
 #[tauri::command]
-pub fn restore_backup(state: State<AppState>, file_id: String, backup_id: String, expected_fingerprint: String) -> CoreResult<SaveResult> {
+pub fn restore_backup(
+    state: State<AppState>,
+    file_id: String,
+    backup_id: String,
+    expected_fingerprint: String,
+) -> CoreResult<SaveResult> {
     let mut inner = state.lock();
     let entry = inner.entry(&file_id)?;
     if entry.read_only {
-        return Err(CoreError::new(ErrorCode::ReadOnly, "This file is read-only in ConfigDeck"));
+        return Err(CoreError::new(
+            ErrorCode::ReadOnly,
+            "This file is read-only in ConfigDeck",
+        ));
     }
     if inner.doc(&file_id)?.session.is_dirty() {
-        return Err(CoreError::new(ErrorCode::InvalidOperation, "Save or discard your unsaved changes before restoring"));
+        return Err(CoreError::new(
+            ErrorCode::InvalidOperation,
+            "Save or discard your unsaved changes before restoring",
+        ));
     }
     let backup = inner.backups.read(&file_id, &backup_id)?;
     let outcome = {
@@ -314,7 +461,10 @@ pub fn restore_backup(state: State<AppState>, file_id: String, backup_id: String
             if DocumentSession::load(id, bytes.to_vec(), kind).is_editable() {
                 Ok(())
             } else {
-                Err(CoreError::new(ErrorCode::InvalidJson, "The backup is not valid; nothing was written"))
+                Err(CoreError::new(
+                    ErrorCode::InvalidJson,
+                    "The backup is not valid; nothing was written",
+                ))
             }
         };
         persistence::save(&SaveRequest {
@@ -333,10 +483,18 @@ pub fn restore_backup(state: State<AppState>, file_id: String, backup_id: String
     doc.session.adopt_saved(backup);
     doc.poller.set_known(outcome.fingerprint.clone());
     doc.external_change = None;
-    Ok(SaveResult { fingerprint: outcome.fingerprint, backup_id: Some(outcome.backup_id), saved_at: now_rfc3339() })
+    Ok(SaveResult {
+        fingerprint: outcome.fingerprint,
+        backup_id: Some(outcome.backup_id),
+        saved_at: now_rfc3339(),
+    })
 }
 
 #[tauri::command]
-pub fn reveal_masked_value(state: State<AppState>, file_id: String, mask_id: u32) -> CoreResult<String> {
+pub fn reveal_masked_value(
+    state: State<AppState>,
+    file_id: String,
+    mask_id: u32,
+) -> CoreResult<String> {
     state.lock().doc(&file_id)?.session.reveal_masked(mask_id)
 }

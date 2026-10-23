@@ -52,15 +52,17 @@ impl Inner {
     }
 
     pub fn doc_mut(&mut self, file_id: &str) -> CoreResult<&mut OpenDoc> {
-        self.open
-            .get_mut(file_id)
-            .ok_or_else(|| CoreError::new(ErrorCode::NotFound, "Document is not open").with_remediation("Open the file first."))
+        self.open.get_mut(file_id).ok_or_else(|| {
+            CoreError::new(ErrorCode::NotFound, "Document is not open")
+                .with_remediation("Open the file first.")
+        })
     }
 
     pub fn doc(&self, file_id: &str) -> CoreResult<&OpenDoc> {
-        self.open
-            .get(file_id)
-            .ok_or_else(|| CoreError::new(ErrorCode::NotFound, "Document is not open").with_remediation("Open the file first."))
+        self.open.get(file_id).ok_or_else(|| {
+            CoreError::new(ErrorCode::NotFound, "Document is not open")
+                .with_remediation("Open the file first.")
+        })
     }
 
     /// Secret test for diffs: preset patterns plus the default key patterns
@@ -73,13 +75,21 @@ impl Inner {
     }
 
     /// Schema diagnostics for a value: user schema (errors) and preset (warnings).
-    pub fn schema_diagnostics(&self, doc: &OpenDoc, value: &serde_json::Value) -> Vec<crate::core::types::Diagnostic> {
+    pub fn schema_diagnostics(
+        &self,
+        doc: &OpenDoc,
+        value: &serde_json::Value,
+    ) -> Vec<crate::core::types::Diagnostic> {
         let mut out = Vec::new();
         if let Some(schema) = &doc.user_schema {
             debug_assert_eq!(schema.origin(), SchemaOrigin::User);
             out.extend(schema.validate(value));
         }
-        if let Some(schema) = doc.preset_id.as_deref().and_then(|id| self.presets.schema(id)) {
+        if let Some(schema) = doc
+            .preset_id
+            .as_deref()
+            .and_then(|id| self.presets.schema(id))
+        {
             out.extend(schema.validate(value));
         }
         out

@@ -140,7 +140,10 @@ pub fn save(req: &SaveRequest) -> CoreResult<SaveOutcome> {
     let shown = req.path;
     // Step 2: resolve and validate the destination.
     let resolved = resolve_target(shown)?;
-    if req.expected_target.is_some_and(|t| t != resolved.target_path) {
+    if req
+        .expected_target
+        .is_some_and(|t| t != resolved.target_path)
+    {
         return Err(conflict(shown));
     }
     // Steps 3-4: compare the bytes on disk with the loaded snapshot.
