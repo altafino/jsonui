@@ -19,6 +19,8 @@ pub type Pointer = String;
 pub enum DocKind {
     Json,
     Jsonc,
+    Yaml,
+    Toml,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]

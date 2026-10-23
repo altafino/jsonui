@@ -130,7 +130,7 @@ fn every_fixture_loads_with_expected_state() {
         assert_eq!(d.candidate_bytes(), fixture(name), "{name}");
         if *editable {
             assert_eq!(
-                d.root.as_ref().unwrap().to_string().as_bytes(),
+                d.root.as_ref().unwrap().render().as_bytes(),
                 &fixture(name)[d.bom_len()..],
                 "{name}"
             );
@@ -373,7 +373,7 @@ fn a13_noop_round_trip_all_editable_fixtures() {
         let d = open(name);
         assert_eq!(d.candidate_bytes(), fixture(name), "{name}");
         assert_eq!(
-            d.root.as_ref().unwrap().to_string().as_bytes(),
+            d.root.as_ref().unwrap().render().as_bytes(),
             &fixture(name)[d.bom_len()..],
             "{name}"
         );
@@ -1942,4 +1942,88 @@ fn reapply_refuses_when_disk_inserted_an_earlier_array_item() {
         "  \"objs\": [\n    { \"name\": \"z\", \"on\": true },\n",
     );
     assert!(!d.conflict(disk.as_bytes(), &no_secrets).can_reapply);
+}
+
+/// In-memory `Edit` over a neutral value: exercises the shared op layer
+/// (`syntax::apply_edit`) that the YAML and TOML syntaxes build on.
+struct ValDoc(value::Val);
+
+impl ValDoc {
+    fn at(&mut self, path: &[String]) -> &mut value::Val {
+        let mut cur = &mut self.0;
+        for seg in path {
+            cur = match cur {
+                value::Val::Object(m) => &mut m.iter_mut().find(|(k, _)| k == seg).unwrap().1,
+                value::Val::Array(a) => &mut a[seg.parse::<usize>().unwrap()],
+                _ => unreachable!(),
+            };
+        }
+        cur
+    }
+}
+
+impl syntax::Edit for ValDoc {
+    fn value(&self) -> value::Val {
+        self.0.clone()
+    }
+    fn set(&mut self, path: &[String], v: &value::Val) -> CoreResult<()> {
+        *self.at(path) = v.clone();
+        Ok(())
+    }
+    fn add(&mut self, parent: &[String], key: &str, v: &value::Val) -> CoreResult<()> {
+        let value::Val::Object(m) = self.at(parent) else { unreachable!() };
+        m.push((key.to_string(), v.clone()));
+        Ok(())
+    }
+    fn remove(&mut self, path: &[String]) -> CoreResult<()> {
+        let (last, parent) = path.split_last().unwrap();
+        match self.at(parent) {
+            value::Val::Object(m) => m.retain(|(k, _)| k != last),
+            value::Val::Array(a) => {
+                a.remove(last.parse::<usize>().unwrap());
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+    fn insert(&mut self, array: &[String], index: usize, v: &value::Val) -> CoreResult<()> {
+        let value::Val::Array(a) = self.at(array) else { unreachable!() };
+        a.insert(index, v.clone());
+        Ok(())
+    }
+    fn move_item(&mut self, array: &[String], from: usize, to: usize) -> CoreResult<()> {
+        let value::Val::Array(a) = self.at(array) else { unreachable!() };
+        let item = a.remove(from);
+        a.insert(to, item);
+        Ok(())
+    }
+    fn rename(&mut self, path: &[String], new_key: &str) -> CoreResult<()> {
+        let (last, parent) = path.split_last().unwrap();
+        let value::Val::Object(m) = self.at(parent) else { unreachable!() };
+        m.iter_mut().find(|(k, _)| k == last).unwrap().0 = new_key.to_string();
+        Ok(())
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    /// The shared op layer accepts and rejects exactly what the JSON engine
+    /// does, with the same effects and error codes, and edits the same data.
+    #[test]
+    fn shared_op_layer_matches_the_json_engine(sels in sel_strategy()) {
+        let mut json = load_text(MODEL_DOC, DocKind::Json);
+        let mut generic = ValDoc(json.root.as_ref().unwrap().value());
+        for sel in sels {
+            let op = gen_op(&json.to_value().unwrap(), sel);
+            let want = json.root.as_mut().unwrap().apply(&op);
+            let got = syntax::apply_edit(&mut generic, &op);
+            match (&want, &got) {
+                (Ok(w), Ok(g)) => prop_assert_eq!(w, g, "{:?}", op),
+                (Err(w), Err(g)) => prop_assert_eq!(w.code, g.code, "{:?}: {} vs {}", op, w.message, g.message),
+                _ => prop_assert!(false, "{:?}: json {:?} vs shared {:?}", op, want, got),
+            }
+            prop_assert_eq!(generic.0.to_json(), json.to_value().unwrap(), "{:?}", op);
+        }
+    }
 }

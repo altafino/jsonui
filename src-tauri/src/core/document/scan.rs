@@ -13,6 +13,7 @@ use crate::core::types::{Diagnostic, DiagnosticSource, DocKind, LineEnding, Seve
 use crate::core::{CoreError, ErrorCode};
 
 use super::cst::kind_of;
+use super::syntax::Syntax;
 
 const BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
 
@@ -113,7 +114,7 @@ impl Blocked {
 pub struct Loaded {
     pub has_bom: bool,
     pub line_ending: LineEnding,
-    pub result: Result<CstRootNode, Box<Blocked>>,
+    pub result: Result<Box<dyn Syntax>, Box<Blocked>>,
 }
 
 /// Parse file bytes. Never fails; problems become [`Blocked`].
@@ -129,7 +130,7 @@ pub fn load(bytes: &[u8], kind: DocKind) -> Loaded {
     }
 }
 
-fn file_diag(code: &str, message: &str) -> Box<Blocked> {
+pub fn file_diag(code: &str, message: &str) -> Box<Blocked> {
     Box::new(Blocked {
         diagnostics: vec![Diagnostic {
             severity: Severity::Error,
@@ -144,19 +145,26 @@ fn file_diag(code: &str, message: &str) -> Box<Blocked> {
     })
 }
 
-fn parse_body(body: &[u8], kind: DocKind) -> Result<CstRootNode, Box<Blocked>> {
+fn parse_body(body: &[u8], kind: DocKind) -> Result<Box<dyn Syntax>, Box<Blocked>> {
     let Ok(text) = std::str::from_utf8(body) else {
         return Err(file_diag(
             "UNSUPPORTED_ENCODING",
             "The file is not valid UTF-8 text. Re-save it as UTF-8 in another editor.",
         ));
     };
-    if text.trim().is_empty() {
+    // An empty TOML/YAML file is a valid empty document; empty JSON is not.
+    if matches!(kind, DocKind::Json | DocKind::Jsonc) && text.trim().is_empty() {
         return Err(file_diag(
             "EMPTY_FILE",
             "The file is empty. Start from an empty object `{}` to edit it here.",
         ));
     }
+    super::syntax::parse(text, kind)
+}
+
+/// Parse JSON/JSONC text into the CST, blocking on syntax errors, a missing
+/// value, and duplicate keys.
+pub fn parse_json(text: &str, kind: DocKind) -> Result<CstRootNode, Box<Blocked>> {
     let root = match parse_cst(text, kind) {
         Ok(root) => root,
         Err(e) => {

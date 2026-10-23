@@ -1,5 +1,5 @@
-//! Reading the CST: node kinds, pointer resolution, the UI tree DTO, and a
-//! neutral value tree ([`CstInputValue`]) that keeps number lexemes.
+//! Reading the CST: node kinds, pointer resolution, the UI tree DTO, and its
+//! neutral value ([`CstInputValue`], converted to `value::Val`).
 
 use jsonc_parser::cst::{
     CstContainerNode, CstInputValue, CstLeafNode, CstNode, CstObjectProp, CstRootNode,
@@ -204,39 +204,5 @@ pub fn node_to_value(node: &CstNode) -> CstInputValue {
         CstNode::Leaf(CstLeafNode::BooleanLit(b)) => CstInputValue::Bool(b.value()),
         CstNode::Leaf(CstLeafNode::NullKeyword(_)) => CstInputValue::Null,
         other => CstInputValue::String(scalar_text(other).unwrap_or_default()),
-    }
-}
-
-/// Resolve `segments` inside a neutral value tree.
-pub fn lookup<'a>(value: &'a CstInputValue, segments: &[String]) -> Option<&'a CstInputValue> {
-    let mut cur = value;
-    for segment in segments {
-        cur = match cur {
-            CstInputValue::Object(members) => &members.iter().find(|(k, _)| k == segment)?.1,
-            CstInputValue::Array(items) => items.get(parse_index(segment)?)?,
-            _ => return None,
-        };
-    }
-    Some(cur)
-}
-
-/// `serde_json` view of a value tree, for schema validation. Numbers beyond
-/// `f64` precision lose digits here only; the document text keeps its lexeme.
-pub fn to_json(value: &CstInputValue) -> serde_json::Value {
-    use serde_json::Value;
-    match value {
-        CstInputValue::Null => Value::Null,
-        CstInputValue::Bool(b) => Value::Bool(*b),
-        CstInputValue::Number(n) => n
-            .parse()
-            .map_or_else(|_| Value::String(n.clone()), Value::Number),
-        CstInputValue::String(s) => Value::String(s.clone()),
-        CstInputValue::Array(items) => Value::Array(items.iter().map(to_json).collect()),
-        CstInputValue::Object(members) => Value::Object(
-            members
-                .iter()
-                .map(|(k, v)| (k.clone(), to_json(v)))
-                .collect(),
-        ),
     }
 }

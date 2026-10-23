@@ -406,8 +406,14 @@ impl Registry {
     }
 
     pub fn kind_for(path: &Path) -> DocKind {
-        match path.extension().and_then(|e| e.to_str()) {
-            Some(ext) if ext.eq_ignore_ascii_case("jsonc") => DocKind::Jsonc,
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase);
+        match ext.as_deref() {
+            Some("jsonc") => DocKind::Jsonc,
+            Some("yaml" | "yml") => DocKind::Yaml,
+            Some("toml") => DocKind::Toml,
             _ => DocKind::Json,
         }
     }
