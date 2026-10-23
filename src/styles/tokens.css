@@ -1,0 +1,46 @@
+/* DESIGN.md token set (DD9, DD10, DD11, DD13). Light is the default; JS always sets data-theme. */
+:root {
+  --bg: #ffffff;
+  --sidebar: #f8fafc;
+  --row-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --control-border: #64748b;
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #4f46e5;
+  --accent-text: #4f46e5;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --on-primary: #ffffff;
+  --error: #dc2626;
+  --warning: #b45309;
+  --success: #15803d;
+  --overlay: rgb(15 23 42 / 0.45);
+  --font-scale: 1;
+  --row-h: 44px;
+  --ctl-h: 36px;
+  --fs-body: 1rem;
+}
+:root[data-theme="dark"] {
+  --bg: #0b1020;
+  --sidebar: #10172a;
+  --row-hover: #141c33;
+  --border: #1e293b;
+  --control-border: #64748b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #6366f1;
+  --accent-text: #818cf8;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --on-primary: #ffffff;
+  --error: #f87171;
+  --warning: #f59e0b;
+  --success: #4ade80;
+  --overlay: rgb(2 6 23 / 0.7);
+}
+:root[data-density="compact"] {
+  --row-h: 32px;
+  --ctl-h: 28px;
+  --fs-body: 0.875rem;
+}
