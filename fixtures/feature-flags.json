@@ -1,0 +1,21 @@
+{
+  "application": "example-service",
+  "enabled": true,
+  "debug": false,
+  "retryCount": 3,
+  "timeoutSeconds": 1.5,
+  "displayName": "Local Development",
+  "optionalValue": null,
+  "logging": {
+    "level": "info",
+    "toFile": false
+  },
+  "features": ["search", "analytics"],
+  "services": [
+    { "name": "frontend", "enabled": true },
+    { "name": "backend", "enabled": false }
+  ],
+  "extraUndocumentedKey": {
+    "mustRemain": "untouched"
+  }
+}

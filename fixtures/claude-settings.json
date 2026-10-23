@@ -1,0 +1,14 @@
+{
+  "model": "example-model-name",
+  "permissions": {
+    "allow": ["Bash(git status)"],
+    "ask": [],
+    "deny": ["Read(.env)"]
+  },
+  "env": {
+    "EXAMPLE_NON_SECRET_FLAG": "1"
+  },
+  "unknownFutureVendorSetting": {
+    "enabled": false
+  }
+}

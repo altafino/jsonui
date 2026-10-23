@@ -1,0 +1,8 @@
+{
+  // Keep this explanation next to the value.
+  "enabled": true,
+  "items": [
+    "first", // Comment attached to first item.
+    "second",
+  ],
+}
