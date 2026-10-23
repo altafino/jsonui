@@ -1,3 +1,7 @@
+//! Document engine tests. Helpers marked `pub(super)` (op builders, the
+//! serde reference model `model_apply`, `gen_op`/`sel_strategy`) are shared
+//! with the YAML and TOML syntax tests via `super::tests::…`.
+
 use proptest::prelude::*;
 use serde_json::{Value, json};
 
@@ -22,51 +26,51 @@ fn open(name: &str) -> DocumentSession {
     DocumentSession::load(name, fixture(name), kind_of_name(name))
 }
 
-fn load_text(text: &str, kind: DocKind) -> DocumentSession {
+pub(super) fn load_text(text: &str, kind: DocKind) -> DocumentSession {
     DocumentSession::load("t", text.as_bytes().to_vec(), kind)
 }
 
-fn text_of(sess: &DocumentSession) -> String {
+pub(super) fn text_of(sess: &DocumentSession) -> String {
     String::from_utf8(sess.candidate_bytes()).unwrap()
 }
 
-fn set(path: &str, v: &str) -> DraftOp {
+pub(super) fn set(path: &str, v: &str) -> DraftOp {
     DraftOp::Set {
         path: path.into(),
         value_json: v.into(),
     }
 }
-fn add(path: &str, v: &str) -> DraftOp {
+pub(super) fn add(path: &str, v: &str) -> DraftOp {
     DraftOp::Add {
         path: path.into(),
         value_json: v.into(),
     }
 }
-fn remove(path: &str) -> DraftOp {
+pub(super) fn remove(path: &str) -> DraftOp {
     DraftOp::Remove { path: path.into() }
 }
-fn insert(path: &str, index: u32, v: &str) -> DraftOp {
+pub(super) fn insert(path: &str, index: u32, v: &str) -> DraftOp {
     DraftOp::ArrayInsert {
         path: path.into(),
         index,
         value_json: v.into(),
     }
 }
-fn mv(path: &str, from: u32, to: u32) -> DraftOp {
+pub(super) fn mv(path: &str, from: u32, to: u32) -> DraftOp {
     DraftOp::ArrayMove {
         path: path.into(),
         from,
         to,
     }
 }
-fn rename(path: &str, new_key: &str) -> DraftOp {
+pub(super) fn rename(path: &str, new_key: &str) -> DraftOp {
     DraftOp::RenameKey {
         path: path.into(),
         new_key: new_key.into(),
     }
 }
 
-fn no_secrets(_: &str) -> bool {
+pub(super) fn no_secrets(_: &str) -> bool {
     false
 }
 
@@ -992,11 +996,11 @@ fn revert_is_blocked_by_dependent_later_ops() {
 
 // ----------------------------------------------------- model-based tests
 
-fn esc(k: &str) -> String {
+pub(super) fn esc(k: &str) -> String {
     k.replace('~', "~0").replace('/', "~1")
 }
 
-fn all_pointers(v: &Value, p: &str, out: &mut Vec<String>) {
+pub(super) fn all_pointers(v: &Value, p: &str, out: &mut Vec<String>) {
     out.push(p.to_string());
     match v {
         Value::Object(m) => m
@@ -1011,7 +1015,7 @@ fn all_pointers(v: &Value, p: &str, out: &mut Vec<String>) {
 }
 
 /// Reference semantics of the ops on a plain serde value. Returns false on error.
-fn model_apply(root: &mut Value, op: &DraftOp) -> bool {
+pub(super) fn model_apply(root: &mut Value, op: &DraftOp) -> bool {
     fn split(path: &str) -> Option<(String, String)> {
         let i = path.rfind('/')?;
         Some((
@@ -1107,7 +1111,7 @@ fn model_apply(root: &mut Value, op: &DraftOp) -> bool {
     }
 }
 
-const MODEL_DOC: &str = r#"{
+pub(super) const MODEL_DOC: &str = r#"{
   "flag": true,
   "n": 1.50,
   "s": "x",
@@ -1136,7 +1140,7 @@ const MODEL_DOC_JSONC: &str = r#"{
 }
 "#;
 
-const VALUES: [&str; 8] = [
+pub(super) const VALUES: [&str; 8] = [
     "true",
     "null",
     "1e3",
@@ -1146,10 +1150,10 @@ const VALUES: [&str; 8] = [
     "123",
     "{\"a\": {\"b\": [1, {\"c\": 2}]}}",
 ];
-const KEYS: [&str; 5] = ["k1", "new", "a~b", "x/y", "name"];
+pub(super) const KEYS: [&str; 5] = ["k1", "new", "a~b", "x/y", "name"];
 
 /// Turn selector bytes into a (possibly invalid) op against the current model.
-fn gen_op(model: &Value, sel: (u8, u16, u16, u16)) -> DraftOp {
+pub(super) fn gen_op(model: &Value, sel: (u8, u16, u16, u16)) -> DraftOp {
     let mut pointers = Vec::new();
     all_pointers(model, "", &mut pointers);
     let pick = |n: u16| pointers[n as usize % pointers.len()].clone();
@@ -1165,7 +1169,7 @@ fn gen_op(model: &Value, sel: (u8, u16, u16, u16)) -> DraftOp {
     }
 }
 
-fn sel_strategy() -> impl Strategy<Value = Vec<(u8, u16, u16, u16)>> {
+pub(super) fn sel_strategy() -> impl Strategy<Value = Vec<(u8, u16, u16, u16)>> {
     prop::collection::vec(
         (any::<u8>(), any::<u16>(), any::<u16>(), any::<u16>()),
         1..25,
