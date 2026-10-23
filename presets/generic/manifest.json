@@ -1,0 +1,6 @@
+{
+  "presetId": "generic",
+  "displayName": "Generic JSON",
+  "version": "1.0.0",
+  "description": "No schema. The editor infers controls from the structure of the file."
+}
