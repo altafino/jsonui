@@ -23,7 +23,8 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 jsonc-parser = { version = "0.34.0", features = ["cst", "serde"] }
-jsonschema = "0.60.1"
+# No HTTP/file `$ref` retrieval: the app never touches the network for schemas.
+jsonschema = { version = "0.60.1", default-features = false, features = ["idna"] }
 thiserror = "2.0.21"
 sha2 = "0.11.1"
 tempfile = "3.27.0"
