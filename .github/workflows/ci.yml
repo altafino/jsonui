@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+jobs:
+  build-test:
+    # Oldest supported base with WebKitGTK 4.1, so the AppImage stays portable (eng R8).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System dependencies (Tauri v2 Linux prerequisites)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb webkit2gtk-driver
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+      - name: Boundary rules (eng R7)
+        run: bash scripts/check-boundaries.sh
+      - name: Rust format
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Rust lint
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Rust tests (core + generated TS contract)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --tests
+      - name: Generated TS contract is committed
+        run: git diff --exit-code -- src/lib/types/generated
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Playwright (mocked IPC)
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:e2e
+      - name: Build AppImage + deb
+        run: pnpm tauri build
+      - name: Install tauri-driver (WebDriver proxy for the real app)
+        run: cargo install tauri-driver --locked --version 2.1.0
+      - name: Real-app E2E (WebdriverIO; uses src-tauri/target/release/configdeck)
+        run: xvfb-run -a pnpm test:wdio
+      - uses: actions/upload-artifact@v4
+        with:
+          name: configdeck-linux
+          path: |
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb

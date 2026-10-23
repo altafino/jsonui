@@ -1,0 +1,30 @@
+{
+  "groups": [
+    {
+      "id": "general",
+      "title": "General",
+      "paths": ["/model", "/language", "/theme", "/outputStyle", "/effortLevel", "/alwaysThinkingEnabled", "/verbose", "/cleanupPeriodDays"]
+    },
+    { "id": "permissions", "title": "Permissions", "paths": ["/permissions"] },
+    { "id": "environment", "title": "Environment", "paths": ["/env"] },
+    { "id": "hooks", "title": "Hooks", "paths": ["/hooks", "/disableAllHooks"] },
+    { "id": "status-line", "title": "Status line", "paths": ["/statusLine"] },
+    { "id": "plugins", "title": "Plugins", "paths": ["/enabledPlugins", "/extraKnownMarketplaces", "/pluginConfigs"] }
+  ],
+  "secretPathPatterns": ["/env/*TOKEN*", "/env/*KEY*", "/env/*SECRET*", "/env/*PASSWORD*"],
+  "sensitivePointers": [
+    "/permissions",
+    "/permissions/*",
+    "/skipDangerousModePermissionPrompt",
+    "/enableAllProjectMcpServers",
+    "/hooks",
+    "/apiKeyHelper"
+  ],
+  "openMapPointers": ["/env"],
+  "itemSummary": { "/hooks/*": "matcher" },
+  "descriptions": {
+    "/permissions": "Controls which tools Claude Code may use without asking. Loosening these rules expands what Claude can do on your machine.",
+    "/env": "Environment variables passed to Claude Code sessions. Values whose names suggest credentials are masked by default.",
+    "/hooks": "Commands Claude Code runs at lifecycle events. ConfigDeck only edits the text; it never runs hooks."
+  }
+}
