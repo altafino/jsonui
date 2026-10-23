@@ -1,0 +1,11 @@
+# Broken on purpose, with fake secrets.
+name = "svc"
+api_key = "sk-test-broken-0001
+port = 8080
+
+[auth]
+token = 'sk-test-literal-0002'
+list = [
+  "sk-test-in-list-0003",
+  4,
+]
