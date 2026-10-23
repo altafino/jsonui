@@ -95,10 +95,10 @@ async function probe(activeId: string | null) {
   for (const f of targets) if (!useDocs.getState().docs[f.id]) await openDoc(f.id);
 }
 
-let started = false;
-export async function bootstrap() {
-  if (started) return;
-  started = true;
+let booting: Promise<void> | null = null;
+export const bootstrap = () => (booting ??= boot());
+
+async function boot() {
   await initApi();
   const app = useApp.getState();
   try {
@@ -125,4 +125,9 @@ export async function bootstrap() {
   const last = [...files].sort((a, b) => (b.lastOpenedAt ?? "").localeCompare(a.lastOpenedAt ?? ""))[0] ?? files[0];
   if (last) await activate(last.id);
   void probe(last?.id ?? null);
+}
+
+/** Test helper: allows bootstrap() to run again against a fresh mock. */
+export function _resetForTests() {
+  booting = null;
 }

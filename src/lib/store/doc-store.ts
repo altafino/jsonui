@@ -298,7 +298,9 @@ export function refreshChanges(fileId: string) {
 /** Edits in flight; Save and document switches wait for them (typed value + Ctrl+S). */
 const pending = new Set<Promise<unknown>>();
 export async function flushEdits() {
-  (document.activeElement as HTMLElement | null)?.blur?.();
+  // Commit a value still being typed (blur triggers the field's commit); leave buttons focused.
+  const el = document.activeElement as HTMLElement | null;
+  if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) el.blur();
   await Promise.resolve();
   await Promise.allSettled([...pending]);
 }

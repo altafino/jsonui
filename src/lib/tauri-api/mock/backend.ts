@@ -113,6 +113,7 @@ export function createMockBackend(options: MockOptions = {}) {
     register({ displayName: "app-config.json", absolutePath: `${base}/app-config.json` }, FIXTURES.invalidMissingComma);
     register({ displayName: "duplicate-keys.json", absolutePath: `${base}/duplicate-keys.json` }, FIXTURES.duplicateKeys);
     register({ displayName: "legacy-comments.json", absolutePath: `${base}/legacy-comments.json` }, FIXTURES.invalidComment);
+    register({ displayName: "broken-secrets.json", absolutePath: `${base}/broken-secrets.json` }, '{\n  "env": {\n    "API_TOKEN": "sk-test-0000000000000000"\n    "name": "demo"\n  }\n}\n');
     register({ displayName: "secrets.json", absolutePath: `${base}/secrets.json` }, FIXTURES.secret);
     register({ displayName: "deep.json", absolutePath: `${base}/deep.json` }, FIXTURES.deep);
     register({ displayName: "numbers.json", absolutePath: `${base}/numbers.json` }, FIXTURES.numbers);

@@ -1,5 +1,5 @@
 import { useApp } from "./app-store";
-import { countSeverity, saveDocument, useDocs } from "./doc-store";
+import { countSeverity, flushEdits, saveDocument, useDocs } from "./doc-store";
 import { saveGate, type SaveGate } from "./save-machine";
 
 export interface SaveInfo {
@@ -25,7 +25,9 @@ export function useSaveInfo(): SaveInfo {
 }
 
 /** Save entry point shared by the footer button and Ctrl+S: warnings go through the Review confirm (eng R2). */
-export function requestSave(): void {
+export async function requestSave(): Promise<void> {
+  // A value still being typed commits first, so Ctrl+S never saves a stale draft.
+  await flushEdits();
   const app = useApp.getState();
   const id = app.activeFileId;
   if (!id) return;
@@ -38,5 +40,5 @@ export function requestSave(): void {
     return;
   }
   if (countSeverity(doc, "warning") > 0) app.openDialog({ kind: "review", fileId: id });
-  else void saveDocument(id);
+  else await saveDocument(id);
 }
