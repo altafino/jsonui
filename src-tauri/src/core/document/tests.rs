@@ -2039,3 +2039,83 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn apply_group_is_all_or_none_and_one_undo_step() {
+    let mut d = load_text(MODEL_DOC, DocKind::Json);
+    let original = d.candidate_bytes();
+    // The third op fails: the first two must be rolled back.
+    let err = d
+        .apply_group(vec![remove("/flag"), set("/n", "2"), remove("/missing")])
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidOperation);
+    assert_eq!(d.candidate_bytes(), original);
+    assert!(!d.is_dirty());
+
+    d.apply(set("/s", "\"y\"")).unwrap();
+    let after_one = d.candidate_bytes();
+    d.apply_group(vec![remove("/list/2"), remove("/list/0"), remove("/map")])
+        .unwrap();
+    assert_eq!(d.ops().len(), 4);
+    d.undo().unwrap();
+    assert_eq!(
+        d.candidate_bytes(),
+        after_one,
+        "one undo restores the whole batch"
+    );
+    d.redo().unwrap();
+    let v = d.to_value().unwrap();
+    assert_eq!(v["list"], json!([2]));
+    assert!(v.get("map").is_none());
+    d.undo().unwrap();
+    d.undo().unwrap();
+    assert_eq!(d.candidate_bytes(), original);
+    assert!(d.undo().is_err());
+}
+
+#[test]
+fn revert_inside_a_batch_shrinks_that_undo_step() {
+    let mut d = load_text(MODEL_DOC, DocKind::Json);
+    let original = d.candidate_bytes();
+    d.apply_group(vec![remove("/flag"), remove("/s")]).unwrap();
+    d.revert_op(0).unwrap();
+    assert_eq!(d.ops(), &[remove("/s")]);
+    d.undo().unwrap();
+    assert_eq!(d.candidate_bytes(), original);
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    /// Random ops in random-sized groups: each undo lands exactly on the bytes
+    /// before its group; redo replays to the final bytes.
+    #[test]
+    fn grouped_undo_redo_roundtrip(sels in sel_strategy(), sizes in prop::collection::vec(1usize..4, 1..10)) {
+        let mut d = load_text(MODEL_DOC, DocKind::Json);
+        let mut model = d.to_value().unwrap();
+        let mut states = vec![d.candidate_bytes()];
+        let mut sels = sels.into_iter();
+        for size in sizes {
+            let mut ops = Vec::new();
+            let mut next = model.clone();
+            for sel in sels.by_ref().take(size) {
+                let op = gen_op(&next, sel);
+                if model_apply(&mut next, &op) { ops.push(op); }
+            }
+            if ops.is_empty() { continue; }
+            d.apply_group(ops).unwrap();
+            model = next;
+            prop_assert_eq!(d.to_value().unwrap(), model.clone());
+            states.push(d.candidate_bytes());
+        }
+        let steps = states.len() - 1;
+        for i in 1..=steps {
+            d.undo().unwrap();
+            prop_assert_eq!(&d.candidate_bytes(), &states[steps - i]);
+        }
+        for state in &states[1..] {
+            d.redo().unwrap();
+            prop_assert_eq!(&d.candidate_bytes(), state);
+        }
+    }
+}

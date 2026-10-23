@@ -581,3 +581,31 @@ pub fn reveal_masked_value(
 ) -> CoreResult<String> {
     state.lock().doc(&file_id)?.session.reveal_masked(mask_id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::removal_order;
+
+    fn order(ps: &[&str]) -> Vec<String> {
+        removal_order(&ps.iter().map(|p| p.to_string()).collect::<Vec<_>>()).unwrap()
+    }
+
+    #[test]
+    fn removal_order_drops_descendants_and_goes_highest_index_first() {
+        assert_eq!(
+            order(&["/list/2", "/list/10", "/list/9", "/a"]),
+            ["/list/10", "/list/9", "/list/2", "/a"]
+        );
+        // Children of a selected parent (and duplicates) are dropped.
+        assert_eq!(
+            order(&["/map/k1", "/map", "/map", "/x/0/y"]),
+            ["/x/0/y", "/map"]
+        );
+        // Items inside different array items stay independent of each other.
+        assert_eq!(
+            order(&["/objs/0/name", "/objs/1/on"]),
+            ["/objs/1/on", "/objs/0/name"]
+        );
+        assert!(removal_order(&["bad".to_string()]).is_err());
+    }
+}

@@ -243,3 +243,13 @@ fn hints_report_value_type_and_required() {
     );
     assert_eq!((h[2].value_type.as_deref(), h[2].required), (None, false));
 }
+
+#[test]
+fn required_settings_are_protected() {
+    let s = compile(
+        json!({"required": ["a"], "properties": {"a": {}, "b": {}}}),
+        SchemaOrigin::User,
+    );
+    let h = s.hints(&json!({"a": 1, "b": 2}), &["/a".into(), "/b".into()]);
+    assert!(h[0].protected && !h[1].protected);
+}
