@@ -22,8 +22,8 @@ const setField = async (user: ReturnType<typeof userEvent.setup>, name: string, 
 describe("empty states (DD5)", () => {
   it("welcome shows the exact copy and three actions", async () => {
     await bootApp({ flags: [] });
-    expect(await screen.findByText("Edit JSON settings as forms. Every save makes a backup first.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Add JSON file/ })).toBeInTheDocument();
+    expect(await screen.findByText("Edit JSON, YAML and TOML settings as forms. Every save makes a backup first.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add config file/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Discover Claude Code settings/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Try with a sample/ })).toBeInTheDocument();
   });
@@ -240,7 +240,7 @@ describe("conflict (DD16, R16)", () => {
   it("an unparseable disk version cannot be reapplied", async () => {
     const { m } = await bootApp({ open: "feature-flags.json" });
     const { dialog } = await conflict("invalid", m);
-    expect((await within(dialog).findAllByText(/not valid JSON/)).length).toBeGreaterThan(0);
+    expect((await within(dialog).findAllByText(/can't be read/)).length).toBeGreaterThan(0);
     expect(within(dialog).getByRole("button", { name: "Reapply my changes to the new version" })).toBeDisabled();
   });
 

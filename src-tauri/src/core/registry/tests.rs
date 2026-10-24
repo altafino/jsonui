@@ -168,6 +168,27 @@ fn create_new_writes_empty_object_and_refuses_overwrite() {
 }
 
 #[test]
+fn kind_follows_extension_and_new_yaml_toml_files_start_empty() {
+    for (name, kind) in [
+        ("a.JSON", DocKind::Json),
+        ("a.jsonc", DocKind::Jsonc),
+        ("a.yaml", DocKind::Yaml),
+        ("a.YML", DocKind::Yaml),
+        ("a.toml", DocKind::Toml),
+        ("Makefile", DocKind::Json),
+    ] {
+        assert_eq!(Registry::kind_for(Path::new(name)), kind, "{name}");
+    }
+    let fx = Fx::new();
+    let mut r = fx.registry();
+    for name in ["new.yaml", "new.toml"] {
+        let p = fx.dir.path().join(name);
+        assert!(r.create_new(&p).unwrap().kind != DocKind::Json);
+        assert_eq!(fs::read(&p).unwrap(), b"", "{name}");
+    }
+}
+
+#[test]
 fn sample_create_unique_names_and_remove_deletes_only_copy() {
     let fx = Fx::new();
     let mut r = fx.registry();

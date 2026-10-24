@@ -16,9 +16,9 @@ describe("A27 keyboard-only: add -> edit -> save (no mouse)", () => {
     const original = read(path);
     queuePick(path);
 
-    // Welcome screen: focus "Add JSON file" and activate it.
-    await $("button=Add JSON file").waitForDisplayed();
-    await tabTo((el) => el.textContent?.trim() === "Add JSON file");
+    // Welcome screen: focus "Add config file" and activate it.
+    await $("button=Add config file").waitForDisplayed();
+    await tabTo((el) => el.textContent?.trim() === "Add config file");
     await browser.keys("Enter");
     await expectOpen("feature-flags.json");
 

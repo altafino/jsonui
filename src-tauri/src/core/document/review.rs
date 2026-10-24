@@ -1,13 +1,9 @@
 //! Text-diff half of the Review dialog: hunks with secret values masked.
 
-use jsonc_parser::cst::{CstContainerNode, CstLeafNode, CstNode, CstRootNode};
-
-use crate::core::patch::escape_segment;
 use crate::core::security::redact::Masker;
 use crate::core::types::{DiffHunk, DiffLine, MaskSpan};
 
 use super::lines::diff_hunks;
-use super::scan::parse_options;
 use super::{BOM, DocumentSession, SecretPredicate};
 
 impl DocumentSession {
@@ -27,10 +23,9 @@ impl DocumentSession {
             return Vec::new();
         };
 
-        let mut lexemes = Vec::new();
-        collect_secret_lexemes(root, secret, &mut lexemes);
-        if let Ok(original_root) = CstRootNode::parse(old, &parse_options(self.kind)) {
-            collect_secret_lexemes(&original_root, secret, &mut lexemes);
+        let mut lexemes = root.secret_lexemes(secret);
+        if let Some(original_root) = self.parse_original() {
+            lexemes.extend(original_root.secret_lexemes(secret));
         }
         // Longest first so a secret that contains another is masked whole.
         lexemes.sort_by_key(|l| std::cmp::Reverse(l.len()));
@@ -56,51 +51,6 @@ impl DocumentSession {
                     .collect(),
             })
             .collect()
-    }
-}
-
-/// Raw lexemes (strings with their quotes, numbers) of every scalar at or
-/// under a secret-like pointer.
-fn collect_secret_lexemes(root: &CstRootNode, secret: SecretPredicate, out: &mut Vec<String>) {
-    if let Some(value) = root.value() {
-        walk(&value, "", false, secret, out);
-    }
-}
-
-fn walk(
-    node: &CstNode,
-    pointer: &str,
-    inherited: bool,
-    secret: SecretPredicate,
-    out: &mut Vec<String>,
-) {
-    let here = inherited || secret(pointer);
-    match node {
-        CstNode::Container(CstContainerNode::Object(object)) => {
-            for prop in object.properties() {
-                if let (Some(name), Some(value)) = (prop.decoded_name(), prop.value()) {
-                    walk(
-                        &value,
-                        &format!("{pointer}/{}", escape_segment(&name)),
-                        here,
-                        secret,
-                        out,
-                    );
-                }
-            }
-        }
-        CstNode::Container(CstContainerNode::Array(array)) => {
-            for (i, item) in array.elements().iter().enumerate() {
-                walk(item, &format!("{pointer}/{i}"), here, secret, out);
-            }
-        }
-        CstNode::Leaf(CstLeafNode::StringLit(_) | CstLeafNode::NumberLit(_)) if here => {
-            let lexeme = node.to_string();
-            if !lexeme.trim_matches('"').is_empty() {
-                out.push(lexeme);
-            }
-        }
-        _ => {}
     }
 }
 

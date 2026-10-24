@@ -110,19 +110,22 @@ pub fn get_field_hints(
     file_id: String,
     pointers: Vec<String>,
 ) -> CoreResult<Vec<FieldHint>> {
-    let inner = state.lock();
-    let doc = inner.doc(&file_id)?;
+    field_hints(&state.lock(), &file_id, &pointers)
+}
+
+fn field_hints(inner: &Inner, file_id: &str, pointers: &[String]) -> CoreResult<Vec<FieldHint>> {
+    let doc = inner.doc(file_id)?;
     let Some(value) = doc.session.to_value() else {
         return Ok(Vec::new());
     };
     let mut hints: Vec<FieldHint> = match &doc.user_schema {
-        Some(schema) => schema.hints(&value, &pointers),
+        Some(schema) => schema.hints(&value, pointers),
         None => match doc
             .preset_id
             .as_deref()
             .and_then(|id| inner.presets.schema(id))
         {
-            Some(schema) => schema.hints(&value, &pointers),
+            Some(schema) => schema.hints(&value, pointers),
             None => pointers
                 .iter()
                 .map(|p| FieldHint {
@@ -134,12 +137,13 @@ pub fn get_field_hints(
     };
     if let Some(id) = doc.preset_id.as_deref() {
         // Preset layer overlays the schema layer: its `Some` fields win, flags are OR-ed.
-        for (h, ui) in hints.iter_mut().zip(inner.presets.ui_hints(id, &pointers)) {
+        for (h, ui) in hints.iter_mut().zip(inner.presets.ui_hints(id, pointers)) {
             h.description = ui.description.or(h.description.take());
             h.item_summary = ui.item_summary.or(h.item_summary.take());
             h.title = ui.title.or(h.title.take());
             h.secret |= ui.secret;
             h.sensitive |= ui.sensitive;
+            h.protected |= ui.protected;
             h.open_map |= ui.open_map;
         }
     }
@@ -179,7 +183,74 @@ pub fn apply_draft_operation<R: Runtime>(
     file_id: String,
     op: DraftOp,
 ) -> CoreResult<EditResult> {
+    if let DraftOp::Remove { path } | DraftOp::RenameKey { path, .. } = &op {
+        refuse_protected(&state.lock(), &file_id, std::slice::from_ref(path))?;
+    }
     edit(&app, &state, &file_id, |s| s.apply(op))
+}
+
+/// Remove several fields or items as one undo step. Pointers under another
+/// selected pointer are dropped, and array items go highest index first so
+/// earlier removals never shift later ones.
+#[tauri::command]
+pub fn remove_draft_items<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<AppState>,
+    file_id: String,
+    pointers: Vec<String>,
+) -> CoreResult<EditResult> {
+    let paths = removal_order(&pointers)?;
+    refuse_protected(&state.lock(), &file_id, &paths)?;
+    let ops = paths
+        .into_iter()
+        .map(|path| DraftOp::Remove { path })
+        .collect();
+    edit(&app, &state, &file_id, |s| s.apply_group(ops))
+}
+
+fn removal_order(pointers: &[String]) -> CoreResult<Vec<String>> {
+    let mut parsed = pointers
+        .iter()
+        .map(|p| Ok((crate::core::patch::parse_pointer(p)?, p.clone())))
+        .collect::<CoreResult<Vec<_>>>()?;
+    let segment_cmp = |a: &String, b: &String| match (a.parse::<u64>(), b.parse::<u64>()) {
+        (Ok(x), Ok(y)) => x.cmp(&y),
+        _ => a.cmp(b),
+    };
+    // Descending, segment by segment, numbers compared as numbers.
+    parsed.sort_by(|(a, _), (b, _)| {
+        a.iter()
+            .zip(b)
+            .map(|(x, y)| segment_cmp(x, y))
+            .find(|o| o.is_ne())
+            .unwrap_or_else(|| a.len().cmp(&b.len()))
+            .reverse()
+    });
+    let all: Vec<Vec<String>> = parsed.iter().map(|(s, _)| s.clone()).collect();
+    let mut out: Vec<String> = Vec::new();
+    for (segments, pointer) in parsed {
+        let covered = all
+            .iter()
+            .any(|other| other.len() < segments.len() && segments.starts_with(other));
+        if !covered && !out.contains(&pointer) {
+            out.push(pointer);
+        }
+    }
+    Ok(out)
+}
+
+/// Refuse removing or renaming a setting the schema requires or the preset protects.
+fn refuse_protected(inner: &Inner, file_id: &str, pointers: &[String]) -> CoreResult<()> {
+    let hints = field_hints(inner, file_id, pointers)?;
+    match hints.iter().find(|h| h.protected) {
+        Some(h) => Err(CoreError::new(
+            ErrorCode::InvalidOperation,
+            "This setting is required and can't be removed or renamed",
+        )
+        .with_path(h.pointer.clone())
+        .with_remediation("Change its value instead.")),
+        None => Ok(()),
+    }
 }
 
 #[tauri::command]
@@ -509,4 +580,32 @@ pub fn reveal_masked_value(
     mask_id: u32,
 ) -> CoreResult<String> {
     state.lock().doc(&file_id)?.session.reveal_masked(mask_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::removal_order;
+
+    fn order(ps: &[&str]) -> Vec<String> {
+        removal_order(&ps.iter().map(|p| p.to_string()).collect::<Vec<_>>()).unwrap()
+    }
+
+    #[test]
+    fn removal_order_drops_descendants_and_goes_highest_index_first() {
+        assert_eq!(
+            order(&["/list/2", "/list/10", "/list/9", "/a"]),
+            ["/list/10", "/list/9", "/list/2", "/a"]
+        );
+        // Children of a selected parent (and duplicates) are dropped.
+        assert_eq!(
+            order(&["/map/k1", "/map", "/map", "/x/0/y"]),
+            ["/x/0/y", "/map"]
+        );
+        // Items inside different array items stay independent of each other.
+        assert_eq!(
+            order(&["/objs/0/name", "/objs/1/on"]),
+            ["/objs/1/on", "/objs/0/name"]
+        );
+        assert!(removal_order(&["bad".to_string()]).is_err());
+    }
 }

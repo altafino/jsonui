@@ -21,7 +21,7 @@ export function ConflictDialog({ fileId }: { fileId: string }) {
   }, [fileId]);
 
   const overlapping = useMemo(() => new Set(info?.overlapping ?? []), [info]);
-  const reason = !info ? null : info.diskParseError ? "The version on disk is not valid JSON, so your changes can't be replayed onto it." : overlapping.size > 0 ? "Some of your changes touch settings that also changed on disk." : null;
+  const reason = !info ? null : info.diskParseError ? "The version on disk can't be read, so your changes can't be replayed onto it." : overlapping.size > 0 ? "Some of your changes touch settings that also changed on disk." : null;
 
   const doReapply = async () => {
     if (await reapply(fileId)) {
@@ -76,7 +76,7 @@ export function ConflictDialog({ fileId }: { fileId: string }) {
           {info.diskParseError ? (
             <p role="alert" className="flex items-start gap-2 rounded-md border border-danger/60 px-3 py-2 text-sm">
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
-              <span>The version on disk is not valid JSON: {info.diskParseError.message}</span>
+              <span>The version on disk can't be read: {info.diskParseError.message}</span>
             </p>
           ) : null}
           <section aria-labelledby="c-disk">

@@ -52,20 +52,20 @@ export const read = (p: string) => readFileSync(p, "utf8");
 
 export const saveStatus = () => $('[data-testid="save-status"]');
 
-/** Mouse path from the empty-state welcome screen: "Add JSON file" -> scripted picker. */
+/** Mouse path from the empty-state welcome screen: "Add config file" -> scripted picker. */
 export async function addFileByMouse(path: string) {
   queuePick(path);
   // Never create two element queries at once: WebKitWebDriver can hang on concurrent commands.
-  const welcomeShown = async () => await $("button=Add JSON file").isExisting();
+  const welcomeShown = async () => await $("button=Add config file").isExisting();
   await browser.waitUntil(async () => (await welcomeShown()) || (await $("button=Add file").isExisting()), { timeoutMsg: "app UI never rendered" });
   if (await welcomeShown()) {
-    const welcome = $("button=Add JSON file");
+    const welcome = $("button=Add config file");
     await welcome.waitForClickable();
     await welcome.click();
   } else {
     // Files already registered: the sidebar "Add file" dropdown.
     await $("button=Add file").click();
-    await $('[role="menuitem"]=Add JSON file…').click();
+    await $('[role="menuitem"]=Add config file…').click();
   }
 }
 

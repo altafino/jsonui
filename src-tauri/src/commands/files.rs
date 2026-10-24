@@ -10,6 +10,7 @@ use super::state::AppState;
 use crate::core::document::DocumentSession;
 use crate::core::persistence;
 use crate::core::presets::{ClaudeEnv, discover_claude};
+use crate::core::registry::Registry;
 use crate::core::security::paths::resolve_target;
 use crate::core::types::{
     DiscoveredCandidate, FileStatus, ManagedDocument, MetadataPatch, Notice, Preferences,
@@ -243,7 +244,7 @@ pub fn add_discovered_file(
         .add(&path, None, Some(scope), Some(CLAUDE_PRESET.into()))
 }
 
-/// Write `{}` to a path that does not exist yet; never overwrites.
+/// Write an empty document to a path that does not exist yet; never overwrites.
 fn create_empty(path: &Path) -> CoreResult<()> {
     let create = || -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
@@ -253,13 +254,13 @@ fn create_empty(path: &Path) -> CoreResult<()> {
             .write(true)
             .create_new(true)
             .open(path)?;
-        std::io::Write::write_all(&mut f, b"{}\n")?;
+        std::io::Write::write_all(&mut f, Registry::empty_document(Registry::kind_for(path)))?;
         f.sync_all()
     };
     create().map_err(|e| CoreError::from_io(&e, path))
 }
 
-/// Recreate a registered file that went missing, as `{}` at its own path.
+/// Recreate a registered file that went missing, empty, at its own path.
 #[tauri::command]
 pub fn create_missing_file(state: State<AppState>, file_id: String) -> CoreResult<()> {
     let mut inner = state.lock();

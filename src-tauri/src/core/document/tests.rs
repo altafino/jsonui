@@ -1,3 +1,7 @@
+//! Document engine tests. Helpers marked `pub(super)` (op builders, the
+//! serde reference model `model_apply`, `gen_op`/`sel_strategy`) are shared
+//! with the YAML and TOML syntax tests via `super::tests::…`.
+
 use proptest::prelude::*;
 use serde_json::{Value, json};
 
@@ -22,51 +26,51 @@ fn open(name: &str) -> DocumentSession {
     DocumentSession::load(name, fixture(name), kind_of_name(name))
 }
 
-fn load_text(text: &str, kind: DocKind) -> DocumentSession {
+pub(super) fn load_text(text: &str, kind: DocKind) -> DocumentSession {
     DocumentSession::load("t", text.as_bytes().to_vec(), kind)
 }
 
-fn text_of(sess: &DocumentSession) -> String {
+pub(super) fn text_of(sess: &DocumentSession) -> String {
     String::from_utf8(sess.candidate_bytes()).unwrap()
 }
 
-fn set(path: &str, v: &str) -> DraftOp {
+pub(super) fn set(path: &str, v: &str) -> DraftOp {
     DraftOp::Set {
         path: path.into(),
         value_json: v.into(),
     }
 }
-fn add(path: &str, v: &str) -> DraftOp {
+pub(super) fn add(path: &str, v: &str) -> DraftOp {
     DraftOp::Add {
         path: path.into(),
         value_json: v.into(),
     }
 }
-fn remove(path: &str) -> DraftOp {
+pub(super) fn remove(path: &str) -> DraftOp {
     DraftOp::Remove { path: path.into() }
 }
-fn insert(path: &str, index: u32, v: &str) -> DraftOp {
+pub(super) fn insert(path: &str, index: u32, v: &str) -> DraftOp {
     DraftOp::ArrayInsert {
         path: path.into(),
         index,
         value_json: v.into(),
     }
 }
-fn mv(path: &str, from: u32, to: u32) -> DraftOp {
+pub(super) fn mv(path: &str, from: u32, to: u32) -> DraftOp {
     DraftOp::ArrayMove {
         path: path.into(),
         from,
         to,
     }
 }
-fn rename(path: &str, new_key: &str) -> DraftOp {
+pub(super) fn rename(path: &str, new_key: &str) -> DraftOp {
     DraftOp::RenameKey {
         path: path.into(),
         new_key: new_key.into(),
     }
 }
 
-fn no_secrets(_: &str) -> bool {
+pub(super) fn no_secrets(_: &str) -> bool {
     false
 }
 
@@ -130,7 +134,7 @@ fn every_fixture_loads_with_expected_state() {
         assert_eq!(d.candidate_bytes(), fixture(name), "{name}");
         if *editable {
             assert_eq!(
-                d.root.as_ref().unwrap().to_string().as_bytes(),
+                d.root.as_ref().unwrap().render().as_bytes(),
                 &fixture(name)[d.bom_len()..],
                 "{name}"
             );
@@ -373,7 +377,7 @@ fn a13_noop_round_trip_all_editable_fixtures() {
         let d = open(name);
         assert_eq!(d.candidate_bytes(), fixture(name), "{name}");
         assert_eq!(
-            d.root.as_ref().unwrap().to_string().as_bytes(),
+            d.root.as_ref().unwrap().render().as_bytes(),
             &fixture(name)[d.bom_len()..],
             "{name}"
         );
@@ -992,11 +996,11 @@ fn revert_is_blocked_by_dependent_later_ops() {
 
 // ----------------------------------------------------- model-based tests
 
-fn esc(k: &str) -> String {
+pub(super) fn esc(k: &str) -> String {
     k.replace('~', "~0").replace('/', "~1")
 }
 
-fn all_pointers(v: &Value, p: &str, out: &mut Vec<String>) {
+pub(super) fn all_pointers(v: &Value, p: &str, out: &mut Vec<String>) {
     out.push(p.to_string());
     match v {
         Value::Object(m) => m
@@ -1011,7 +1015,7 @@ fn all_pointers(v: &Value, p: &str, out: &mut Vec<String>) {
 }
 
 /// Reference semantics of the ops on a plain serde value. Returns false on error.
-fn model_apply(root: &mut Value, op: &DraftOp) -> bool {
+pub(super) fn model_apply(root: &mut Value, op: &DraftOp) -> bool {
     fn split(path: &str) -> Option<(String, String)> {
         let i = path.rfind('/')?;
         Some((
@@ -1107,7 +1111,7 @@ fn model_apply(root: &mut Value, op: &DraftOp) -> bool {
     }
 }
 
-const MODEL_DOC: &str = r#"{
+pub(super) const MODEL_DOC: &str = r#"{
   "flag": true,
   "n": 1.50,
   "s": "x",
@@ -1136,7 +1140,7 @@ const MODEL_DOC_JSONC: &str = r#"{
 }
 "#;
 
-const VALUES: [&str; 8] = [
+pub(super) const VALUES: [&str; 8] = [
     "true",
     "null",
     "1e3",
@@ -1146,10 +1150,10 @@ const VALUES: [&str; 8] = [
     "123",
     "{\"a\": {\"b\": [1, {\"c\": 2}]}}",
 ];
-const KEYS: [&str; 5] = ["k1", "new", "a~b", "x/y", "name"];
+pub(super) const KEYS: [&str; 5] = ["k1", "new", "a~b", "x/y", "name"];
 
 /// Turn selector bytes into a (possibly invalid) op against the current model.
-fn gen_op(model: &Value, sel: (u8, u16, u16, u16)) -> DraftOp {
+pub(super) fn gen_op(model: &Value, sel: (u8, u16, u16, u16)) -> DraftOp {
     let mut pointers = Vec::new();
     all_pointers(model, "", &mut pointers);
     let pick = |n: u16| pointers[n as usize % pointers.len()].clone();
@@ -1165,7 +1169,7 @@ fn gen_op(model: &Value, sel: (u8, u16, u16, u16)) -> DraftOp {
     }
 }
 
-fn sel_strategy() -> impl Strategy<Value = Vec<(u8, u16, u16, u16)>> {
+pub(super) fn sel_strategy() -> impl Strategy<Value = Vec<(u8, u16, u16, u16)>> {
     prop::collection::vec(
         (any::<u8>(), any::<u16>(), any::<u16>(), any::<u16>()),
         1..25,
@@ -1942,4 +1946,176 @@ fn reapply_refuses_when_disk_inserted_an_earlier_array_item() {
         "  \"objs\": [\n    { \"name\": \"z\", \"on\": true },\n",
     );
     assert!(!d.conflict(disk.as_bytes(), &no_secrets).can_reapply);
+}
+
+/// In-memory `Edit` over a neutral value: exercises the shared op layer
+/// (`syntax::apply_edit`) that the YAML and TOML syntaxes build on.
+struct ValDoc(value::Val);
+
+impl ValDoc {
+    fn at(&mut self, path: &[String]) -> &mut value::Val {
+        let mut cur = &mut self.0;
+        for seg in path {
+            cur = match cur {
+                value::Val::Object(m) => &mut m.iter_mut().find(|(k, _)| k == seg).unwrap().1,
+                value::Val::Array(a) => &mut a[seg.parse::<usize>().unwrap()],
+                _ => unreachable!(),
+            };
+        }
+        cur
+    }
+}
+
+impl syntax::Edit for ValDoc {
+    fn value(&self) -> value::Val {
+        self.0.clone()
+    }
+    fn set(&mut self, path: &[String], v: &value::Val) -> CoreResult<()> {
+        *self.at(path) = v.clone();
+        Ok(())
+    }
+    fn add(&mut self, parent: &[String], key: &str, v: &value::Val) -> CoreResult<()> {
+        let value::Val::Object(m) = self.at(parent) else {
+            unreachable!()
+        };
+        m.push((key.to_string(), v.clone()));
+        Ok(())
+    }
+    fn remove(&mut self, path: &[String]) -> CoreResult<()> {
+        let (last, parent) = path.split_last().unwrap();
+        match self.at(parent) {
+            value::Val::Object(m) => m.retain(|(k, _)| k != last),
+            value::Val::Array(a) => {
+                a.remove(last.parse::<usize>().unwrap());
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+    fn insert(&mut self, array: &[String], index: usize, v: &value::Val) -> CoreResult<()> {
+        let value::Val::Array(a) = self.at(array) else {
+            unreachable!()
+        };
+        a.insert(index, v.clone());
+        Ok(())
+    }
+    fn move_item(&mut self, array: &[String], from: usize, to: usize) -> CoreResult<()> {
+        let value::Val::Array(a) = self.at(array) else {
+            unreachable!()
+        };
+        let item = a.remove(from);
+        a.insert(to, item);
+        Ok(())
+    }
+    fn rename(&mut self, path: &[String], new_key: &str) -> CoreResult<()> {
+        let (last, parent) = path.split_last().unwrap();
+        let value::Val::Object(m) = self.at(parent) else {
+            unreachable!()
+        };
+        m.iter_mut().find(|(k, _)| k == last).unwrap().0 = new_key.to_string();
+        Ok(())
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    /// The shared op layer accepts and rejects exactly what the JSON engine
+    /// does, with the same effects and error codes, and edits the same data.
+    #[test]
+    fn shared_op_layer_matches_the_json_engine(sels in sel_strategy()) {
+        let mut json = load_text(MODEL_DOC, DocKind::Json);
+        let mut generic = ValDoc(json.root.as_ref().unwrap().value());
+        for sel in sels {
+            let op = gen_op(&json.to_value().unwrap(), sel);
+            let want = json.root.as_mut().unwrap().apply(&op);
+            let got = syntax::apply_edit(&mut generic, &op);
+            match (&want, &got) {
+                (Ok(w), Ok(g)) => prop_assert_eq!(w, g, "{:?}", op),
+                (Err(w), Err(g)) => prop_assert_eq!(w.code, g.code, "{:?}: {} vs {}", op, w.message, g.message),
+                _ => prop_assert!(false, "{:?}: json {:?} vs shared {:?}", op, want, got),
+            }
+            prop_assert_eq!(generic.0.to_json(), json.to_value().unwrap(), "{:?}", op);
+        }
+    }
+}
+
+#[test]
+fn apply_group_is_all_or_none_and_one_undo_step() {
+    let mut d = load_text(MODEL_DOC, DocKind::Json);
+    let original = d.candidate_bytes();
+    // The third op fails: the first two must be rolled back.
+    let err = d
+        .apply_group(vec![remove("/flag"), set("/n", "2"), remove("/missing")])
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidOperation);
+    assert_eq!(d.candidate_bytes(), original);
+    assert!(!d.is_dirty());
+
+    d.apply(set("/s", "\"y\"")).unwrap();
+    let after_one = d.candidate_bytes();
+    d.apply_group(vec![remove("/list/2"), remove("/list/0"), remove("/map")])
+        .unwrap();
+    assert_eq!(d.ops().len(), 4);
+    d.undo().unwrap();
+    assert_eq!(
+        d.candidate_bytes(),
+        after_one,
+        "one undo restores the whole batch"
+    );
+    d.redo().unwrap();
+    let v = d.to_value().unwrap();
+    assert_eq!(v["list"], json!([2]));
+    assert!(v.get("map").is_none());
+    d.undo().unwrap();
+    d.undo().unwrap();
+    assert_eq!(d.candidate_bytes(), original);
+    assert!(d.undo().is_err());
+}
+
+#[test]
+fn revert_inside_a_batch_shrinks_that_undo_step() {
+    let mut d = load_text(MODEL_DOC, DocKind::Json);
+    let original = d.candidate_bytes();
+    d.apply_group(vec![remove("/flag"), remove("/s")]).unwrap();
+    d.revert_op(0).unwrap();
+    assert_eq!(d.ops(), &[remove("/s")]);
+    d.undo().unwrap();
+    assert_eq!(d.candidate_bytes(), original);
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    /// Random ops in random-sized groups: each undo lands exactly on the bytes
+    /// before its group; redo replays to the final bytes.
+    #[test]
+    fn grouped_undo_redo_roundtrip(sels in sel_strategy(), sizes in prop::collection::vec(1usize..4, 1..10)) {
+        let mut d = load_text(MODEL_DOC, DocKind::Json);
+        let mut model = d.to_value().unwrap();
+        let mut states = vec![d.candidate_bytes()];
+        let mut sels = sels.into_iter();
+        for size in sizes {
+            let mut ops = Vec::new();
+            let mut next = model.clone();
+            for sel in sels.by_ref().take(size) {
+                let op = gen_op(&next, sel);
+                if model_apply(&mut next, &op) { ops.push(op); }
+            }
+            if ops.is_empty() { continue; }
+            d.apply_group(ops).unwrap();
+            model = next;
+            prop_assert_eq!(d.to_value().unwrap(), model.clone());
+            states.push(d.candidate_bytes());
+        }
+        let steps = states.len() - 1;
+        for i in 1..=steps {
+            d.undo().unwrap();
+            prop_assert_eq!(&d.candidate_bytes(), &states[steps - i]);
+        }
+        for state in &states[1..] {
+            d.redo().unwrap();
+            prop_assert_eq!(&d.candidate_bytes(), state);
+        }
+    }
 }

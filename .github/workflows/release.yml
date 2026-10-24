@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # glibc 2.35 baseline so the .deb and AppImage run on Manjaro and older Arch.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System dependencies (Tauri v2 Linux prerequisites)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tauri build
+
+      - name: Release notes from CHANGELOG
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v ver="$ver" '
+            $0 ~ "^## \\[" ver "\\]" {on=1; next}
+            on && /^## / {exit}
+            on {print}
+          ' CHANGELOG.md > "${RUNNER_TEMP}/notes.md"
+          if ! grep -q '[^[:space:]]' "${RUNNER_TEMP}/notes.md"; then
+            printf 'ConfigDeck %s\n' "$ver" > "${RUNNER_TEMP}/notes.md"
+          fi
+
+      - name: Checksums
+        run: |
+          cd src-tauri/target/release/bundle
+          sha256sum appimage/*.AppImage deb/*.deb > "${RUNNER_TEMP}/SHA256SUMS"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          files=(
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+            "${RUNNER_TEMP}/SHA256SUMS"
+          )
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" --clobber "${files[@]}"
+          else
+            gh release create "$tag" \
+              --title "ConfigDeck ${tag#v}" \
+              --notes-file "${RUNNER_TEMP}/notes.md" \
+              "${files[@]}"
+          fi

@@ -19,7 +19,7 @@ use super::scan::{find_duplicates, parse_cst};
 
 /// What an applied op did, recorded for the review/conflict lists and for
 /// building the minimal [`EditResult`](crate::core::types::EditResult).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OpEffect {
     pub kind: ChangeKind,
     /// Pointer the change list shows (the new location for renames/moves).

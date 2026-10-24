@@ -1,0 +1,50 @@
+# ConfigDeck sample service config (fake values only).
+name: "api"   # service name
+version: 1.50
+debug: true
+port: 8080
+log_level: info   # one of debug|info|warn
+retries: 0x10
+timeout: ~
+
+server:
+  host: example.test
+  tls:
+    enabled: false
+    cert: '/etc/ssl/certs/server.pem'
+
+# Credentials (fake).
+auth:
+  API_TOKEN: sk-test-0000000000000000
+  password: "hunter2-fake"
+  note: 'it''s fine'
+
+features: [alpha, beta, 3]
+tags:
+  - web
+  - 'internal'   # keep the quotes
+  - "edge"
+
+endpoints:
+  - name: health
+    path: /healthz
+    public: true
+  # the orders endpoint
+  - name: orders
+    path: /orders
+    public: false
+
+notes: |
+  First line.
+  Second line.
+
+summary: >-
+  folded text
+  continues here
+
+multi: plain scalar
+  over two lines
+empty_list: []
+empty_map: {}
+nothing:
+a/b: 0

@@ -125,9 +125,23 @@ bundle: ## Build the AppImage and .deb
 	pnpm tauri build
 	@printf '\n$(G)✓ Bundles:$(X)\n'; ls -1sh $(BUNDLE_DIR)/appimage/*.AppImage $(BUNDLE_DIR)/deb/*.deb | sed 's/^/  /'
 
+##@ Package
+
+aur: ## Build an Arch package from this checkout (AUR_ARGS=--dirty to include uncommitted files)
+	scripts/aur-install.sh $(AUR_ARGS)
+
+aur-install: ## Build that package and install it (sudo)
+	scripts/aur-install.sh --install $(AUR_ARGS)
+
+aur-deb: ## Package the local .deb as configdeck-bin, no Rust compile
+	scripts/aur-install.sh --deb $(AUR_ARGS)
+
+aur-srcinfo: ## Regenerate AUR .SRCINFO files
+	scripts/aur-srcinfo.sh
+
 clean: ## Remove build output (keeps node_modules)
 	$(CARGO) clean
-	rm -r dist test-results playwright-report 2>/dev/null || true
+	rm -r dist test-results playwright-report packaging/build 2>/dev/null || true
 	$(call done,Clean)
 
-.PHONY: help doctor setup dev ui run test test-rust test-ui e2e wdio screenshots check lint fmt bundle clean
+.PHONY: help doctor setup dev ui run test test-rust test-ui e2e wdio screenshots check lint fmt bundle aur aur-install aur-deb aur-srcinfo clean

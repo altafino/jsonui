@@ -3,6 +3,12 @@
 set -euo pipefail
 hits=$(grep -rlnE "jsonc_parser::|use jsonc_parser|extern crate jsonc_parser" src-tauri/src | grep -v -e "src-tauri/src/core/document/" -e "src-tauri/src/core/security/redact.rs" || true)
 if [ -n "$hits" ]; then echo "jsonc_parser used outside allowed modules:"; echo "$hits"; exit 1; fi
+# Each lossless-format crate stays inside its own syntax module.
+for pair in "yaml_edit:src-tauri/src/core/document/yaml" "toml_edit:src-tauri/src/core/document/toml"; do
+  crate=${pair%%:*}; home=${pair#*:}
+  hits=$(grep -rlnE "${crate}::|use ${crate}" src-tauri/src | grep -v -e "^${home}.rs$" -e "^${home}/" || true)
+  if [ -n "$hits" ]; then echo "$crate used outside ${home}:"; echo "$hits"; exit 1; fi
+done
 # Core must stay Tauri-free.
 if grep -rn "tauri::" src-tauri/src/core >/dev/null; then echo "core/ must not depend on tauri"; grep -rn "tauri::" src-tauri/src/core; exit 1; fi
 echo "boundaries ok"

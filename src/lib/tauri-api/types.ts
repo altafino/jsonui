@@ -39,6 +39,7 @@ export interface Api {
   getFieldHints(fileId: string, pointers: string[]): Promise<FieldHint[]>;
   getPresetInfo(fileId: string): Promise<PresetInfo | null>;
   applyDraftOperation(fileId: string, op: DraftOp): Promise<EditResult>;
+  removeDraftItems(fileId: string, pointers: string[]): Promise<EditResult>;
   undoDraftOperation(fileId: string): Promise<EditResult>;
   redoDraftOperation(fileId: string): Promise<EditResult>;
   revertChange(fileId: string, opIndex: number): Promise<EditResult>;

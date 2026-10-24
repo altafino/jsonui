@@ -3,7 +3,7 @@ import { externalChange, launch, noHorizontalScroll, openFile, saveStatus } from
 
 test("first launch: sample, toggle, review, save, undo save", async ({ page }) => {
   await launch(page);
-  await expect(page.getByText("Edit JSON settings as forms. Every save makes a backup first.")).toBeVisible();
+  await expect(page.getByText("Edit JSON, YAML and TOML settings as forms. Every save makes a backup first.")).toBeVisible();
   await page.getByRole("button", { name: /Try with a sample/ }).click();
 
   const header = page.getByRole("group", { name: "File header" });
@@ -143,4 +143,30 @@ test("1024 px: rail sidebar, no horizontal scroll, Ctrl+B opens the overlay", as
   await expect(page.getByTestId("sidebar-overlay")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("sidebar-overlay")).toBeHidden();
+});
+
+test("multi-select remove, one undo, protected setting has no checkbox", async ({ page }) => {
+  await launch(page, "seeded");
+  await openFile(page, "feature-flags.json");
+  await expect(page.getByText("Required", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Application" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: "Select Application" })).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Select Debug" }).check();
+  await page.getByRole("checkbox", { name: "Select Retry count" }).check();
+  await page.getByRole("checkbox", { name: "Select item 1" }).first().check();
+  await page.screenshot({ path: "test-results/selection-mode.png" });
+  await expect(page.getByText("3 selected")).toBeVisible();
+  await page.getByRole("button", { name: "Remove selected" }).click();
+
+  await expect(page.getByRole("switch", { name: "Debug" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove Retry count" })).toHaveCount(0);
+  await expect(page.getByText("Removed 3 items")).toBeAttached();
+  await expect(saveStatus(page)).toContainText(/pending change/);
+
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Debug" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Retry count" })).toBeVisible();
+  await expect(saveStatus(page)).not.toContainText("pending change");
 });

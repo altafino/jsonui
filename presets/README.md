@@ -25,6 +25,7 @@ presets/<dir>/
 | `groups[]` | `{id, title, paths[]}`: sidebar groups; `paths` are RFC 6901 pointers (only keys that exist in the schema) |
 | `secretPathPatterns[]` | globs over decoded pointer segments (`*` and `?`, case-insensitive); matching values are masked by default. Advisory, not a secret detector |
 | `sensitivePointers[]` | same glob syntax; fields that get a "sensitive setting" warning when changed |
+| `protectedPointers[]` | same glob syntax; fields that can be changed but not removed or renamed (schema `required` fields are protected too) |
 | `openMapPointers[]` | same glob syntax; objects edited as free-form name/value maps even though the schema also lists known keys (e.g. `/env`) |
 | `itemSummary` | `{pointerGlob: memberName}`; label for items of an array of objects (e.g. hooks use `matcher`) |
 | `descriptions` | `{pointer: text}`; overrides the schema description |

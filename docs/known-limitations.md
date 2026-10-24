@@ -30,6 +30,33 @@
 - Claude Code 2.1.211+ may read `.claude/settings.local.json` from the git repository
   root; ConfigDeck edits the file in the folder you pick and shows a hint (eng R1).
 
+## YAML
+- Files with several YAML documents (`---`) are read-only, shown as a masked source view.
+- Values behind an alias, nodes defining a referenced anchor, tagged values and complex
+  keys (`? [a, b]`) can't be edited here; the message points to a text editor. Merge
+  keys (`<<`) show as a normal member.
+- Typing follows YAML 1.2 core: `0x1F` and `.inf` are numbers, `yes`/`on` are strings.
+  New strings that YAML 1.1 readers would take as booleans or dates are quoted.
+- String-for-string edits keep plain/single/double style; a block scalar replaced by text
+  that can't stay a literal block becomes a double-quoted string.
+- Replacing or removing a block collection drops comments inside it; comment lines
+  directly above a removed entry stay.
+- Every edit re-parses and validates the whole file, so very large YAML files edit more
+  slowly than JSON.
+- The masked view of a broken file is a line scanner: after an unclosed flow collection
+  or quote, later lines are masked wholesale.
+
+## TOML
+- Files with dotted keys interleaved among other keys, or with mixed line endings, are
+  read-only: `toml_edit` cannot print them back byte for byte.
+- TOML has no null: setting or adding a value containing null is refused.
+- Integers outside 64 bits are refused. Dates and times show as strings and stay dates
+  only when the new text parses as one.
+- Removing a key or table also removes the comment lines directly above it.
+- New tables get a blank line before them; moves inside inline arrays move values only,
+  while array-of-tables moves carry comments and sub-tables along.
+- Multi-line string styles are kept only while the new text fits them.
+
 ## UI
 - No date/time pickers and no variant selector for heterogeneous (`oneOf`) arrays;
   those fields fall back to text or raw JSON value editing.

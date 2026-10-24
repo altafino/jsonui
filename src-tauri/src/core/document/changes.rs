@@ -1,6 +1,6 @@
 //! Structural diff of two value trees (original vs disk, eng C4).
 
-use jsonc_parser::cst::CstInputValue as V;
+use super::value::Val as V;
 
 use crate::core::patch::escape_segment;
 use crate::core::types::{ChangeKind, Pointer};
@@ -103,7 +103,7 @@ mod tests {
 
     fn v(text: &str) -> V {
         let root = CstRootNode::parse(text, &parse_options(DocKind::Json)).unwrap();
-        node_to_value(&root.value().unwrap())
+        node_to_value(&root.value().unwrap()).into()
     }
 
     fn changes(a: &str, b: &str) -> Vec<(String, ChangeKind)> {

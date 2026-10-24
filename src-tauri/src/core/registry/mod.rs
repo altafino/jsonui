@@ -234,7 +234,7 @@ impl Registry {
         })
     }
 
-    /// Create a new file containing `{}\n` (refuses to overwrite) and register it.
+    /// Create a new, empty document (refuses to overwrite) and register it.
     pub fn create_new(&mut self, path: &Path) -> CoreResult<ManagedDocument> {
         use std::io::Write;
         let mut file = fs::OpenOptions::new()
@@ -249,7 +249,7 @@ impl Registry {
                     CoreError::from_io(&e, path)
                 }
             })?;
-        file.write_all(b"{}\n")
+        file.write_all(Self::empty_document(Self::kind_for(path)))
             .and_then(|()| file.sync_all())
             .map_err(|e| CoreError::from_io(&e, path))?;
         drop(file);
@@ -405,9 +405,23 @@ impl Registry {
         })
     }
 
+    /// Contents of a new empty document: `{}` for JSON, nothing for YAML/TOML.
+    pub fn empty_document(kind: DocKind) -> &'static [u8] {
+        match kind {
+            DocKind::Json | DocKind::Jsonc => b"{}\n",
+            DocKind::Yaml | DocKind::Toml => b"",
+        }
+    }
+
     pub fn kind_for(path: &Path) -> DocKind {
-        match path.extension().and_then(|e| e.to_str()) {
-            Some(ext) if ext.eq_ignore_ascii_case("jsonc") => DocKind::Jsonc,
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase);
+        match ext.as_deref() {
+            Some("jsonc") => DocKind::Jsonc,
+            Some("yaml" | "yml") => DocKind::Yaml,
+            Some("toml") => DocKind::Toml,
             _ => DocKind::Json,
         }
     }

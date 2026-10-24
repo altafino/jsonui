@@ -46,7 +46,7 @@ export function DocumentHeader({ file }: { file: ManagedDocument }) {
           </Tip>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <Chip>{doc.kind === "jsonc" ? "JSONC" : "JSON"}</Chip>
+          <Chip>{doc.kind.toUpperCase()}</Chip>
           {doc.presetInfo ? <Chip title={`Preset version ${doc.presetInfo.version}`}>{doc.presetInfo.displayName}</Chip> : null}
           {file.discoveredScope ? <Chip>{SCOPE_LABEL[file.discoveredScope]}</Chip> : null}
           {file.entryKind === "sample" ? <Chip>Sample</Chip> : null}

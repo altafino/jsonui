@@ -67,6 +67,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         document::get_field_hints,
         document::get_preset_info,
         document::apply_draft_operation,
+        document::remove_draft_items,
         document::undo_draft_operation,
         document::redo_draft_operation,
         document::revert_change,

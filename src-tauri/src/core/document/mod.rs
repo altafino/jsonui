@@ -1,10 +1,12 @@
 //! Document engine (document lane).
 //!
-//! One parse per document (eng R3): the jsonc-parser CST is the single source
-//! of truth. The UI tree, duplicate-key diagnostics and the `serde_json::Value`
-//! used for schema validation all derive from it. Rust owns the draft (R4):
-//! ops apply in place to the live CST (R13); undo/redo replay the op list from
-//! the original bytes. Leading UTF-8 BOM is stripped and restored (R10).
+//! One parse per document (eng R3): a lossless tree per syntax ([`Syntax`]:
+//! the jsonc-parser CST for JSON/JSONC, `yaml-edit` for YAML, `toml_edit` for
+//! TOML) is the single source of truth. The UI tree, change lists and the
+//! `serde_json::Value` used for schema validation all derive from it through
+//! the neutral [`value::Val`]. Rust owns the draft (R4): ops apply in place to
+//! the live tree (R13); undo/redo replay the op list from the original bytes.
+//! Leading UTF-8 BOM is stripped and restored (R10).
 
 mod changes;
 mod cst;
@@ -12,24 +14,28 @@ mod lines;
 mod ops;
 mod review;
 mod scan;
+mod syntax;
 #[cfg(test)]
 mod tests;
+mod toml;
+mod value;
+mod yaml;
 
 use std::cell::RefCell;
-
-use jsonc_parser::cst::{CstContainerNode, CstNode, CstRootNode};
 
 use crate::core::patch::{parse_pointer, pointers_overlap};
 use crate::core::persistence::fingerprint;
 use crate::core::security::redact::default_is_secret;
 use crate::core::types::{
     ChangeKind, ChangeSummary, ConflictInfo, Diagnostic, DocKind, DocumentSnapshot, DraftOp,
-    EditResult, Fingerprint, LineEnding, Pointer, SemanticChange, SourceView, TreeNode,
+    EditResult, Fingerprint, LineEnding, NodeKind, Pointer, SemanticChange, SourceView, TreeNode,
 };
 use crate::core::{CoreError, CoreResult, ErrorCode};
 
-use self::ops::{OpEffect, apply_op};
-use self::scan::{Loaded, parse_options};
+use self::ops::OpEffect;
+use self::scan::Loaded;
+use self::syntax::Syntax;
+use self::value::Val;
 
 const BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
 const MASKED_TEXT: &str = "••••";
@@ -48,8 +54,8 @@ pub struct DocumentSession {
     fingerprint: Fingerprint,
     has_bom: bool,
     line_ending: LineEnding,
-    /// The live CST; `None` when the file cannot be edited.
-    root: Option<CstRootNode>,
+    /// The live tree; `None` when the file cannot be edited.
+    root: Option<Box<dyn Syntax>>,
     /// Why the file cannot be edited (empty when it can).
     blocked: Vec<Diagnostic>,
     source_view: Option<SourceView>,
@@ -57,22 +63,33 @@ pub struct DocumentSession {
     masks: RefCell<Vec<String>>,
     source_mask_count: usize,
     ops: Vec<DraftOp>,
-    redo: Vec<DraftOp>,
+    /// Undo steps, oldest first, in ops per step (a batch is one step);
+    /// always sums to `ops.len()`.
+    groups: Vec<usize>,
+    /// Undone steps, most recent last.
+    redo: Vec<Vec<DraftOp>>,
     /// One effect per op, same order.
     effects: Vec<OpEffect>,
     revision: u64,
 }
 
-// SAFETY: `CstRootNode` is `Rc`-based, hence `!Send`. Every `Rc` reachable from
-// a session is created, cloned and dropped inside that session's methods: no
-// CST handle is ever returned or stored elsewhere (the public API only deals in
-// owned DTOs and bytes). Moving the whole session to another thread therefore
+// SAFETY: the jsonc-parser CST and yaml-edit's rowan tree are `Rc`-based,
+// hence `!Send`. Every `Rc` reachable from a session is created, cloned and
+// dropped inside that session's methods: no tree handle is ever returned or
+// stored elsewhere (the public API only deals in owned DTOs and bytes). Moving the whole session to another thread therefore
 // moves every reference count with it. `Sync` is deliberately not implemented,
 // so callers must serialize access (e.g. `Mutex<DocumentSession>`).
 unsafe impl Send for DocumentSession {}
 
 fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::new(ErrorCode::InvalidOperation, message)
+}
+
+fn not_editable() -> CoreError {
+    CoreError::new(
+        ErrorCode::NotEditable,
+        "This file cannot be edited in its current state",
+    )
 }
 
 impl DocumentSession {
@@ -93,6 +110,7 @@ impl DocumentSession {
             masks: RefCell::new(Vec::new()),
             source_mask_count: 0,
             ops: Vec::new(),
+            groups: Vec::new(),
             redo: Vec::new(),
             effects: Vec::new(),
             revision: 0,
@@ -126,13 +144,12 @@ impl DocumentSession {
         self.source_mask_count = self.masks.borrow().len();
     }
 
-    fn editable_root(&self) -> CoreResult<CstRootNode> {
-        self.root.clone().ok_or_else(|| {
-            CoreError::new(
-                ErrorCode::NotEditable,
-                "This file cannot be edited in its current state",
-            )
-        })
+    fn editable_root(&self) -> CoreResult<&dyn Syntax> {
+        self.root.as_deref().ok_or_else(not_editable)
+    }
+
+    fn root_mut(&mut self) -> CoreResult<&mut Box<dyn Syntax>> {
+        self.root.as_mut().ok_or_else(not_editable)
     }
 
     fn bom_len(&self) -> usize {
@@ -158,22 +175,7 @@ impl DocumentSession {
 
     /// Tree node for `pointer` with `depth` levels of children.
     fn tree_at(&self, pointer: &str, depth: u32) -> Option<TreeNode> {
-        let root = self.root.as_ref()?;
-        let segments = parse_pointer(pointer).ok()?;
-        let target = cst::resolve(root, &segments)?;
-        let (key, index) = match (segments.last(), &target.prop) {
-            (Some(last), Some(_)) => (Some(last.clone()), None),
-            (Some(last), None) => (None, cst::parse_index(last).map(|i| i as u32)),
-            (None, _) => (None, None),
-        };
-        Some(cst::build_tree(
-            &target.node,
-            pointer,
-            key,
-            index,
-            depth,
-            &self.touched(),
-        ))
+        self.root.as_ref()?.tree(pointer, depth, &self.touched())
     }
 
     /// Snapshot with root children to depth 1.
@@ -236,33 +238,50 @@ impl DocumentSession {
     }
 
     pub fn apply(&mut self, op: DraftOp) -> CoreResult<EditResult> {
-        let root = self.editable_root()?;
-        let effect = apply_op(&root, &op)?;
-        self.redo.clear();
-        Ok(self.commit(op, effect))
+        self.apply_group(vec![op])
     }
 
-    fn commit(&mut self, op: DraftOp, effect: OpEffect) -> EditResult {
-        let (touched, reshaped) = (effect.touched.clone(), effect.reshaped.clone());
-        self.ops.push(op);
-        self.effects.push(effect);
+    /// Apply `ops` in order as one undo step: all of them or none.
+    pub fn apply_group(&mut self, ops: Vec<DraftOp>) -> CoreResult<EditResult> {
+        let result = self.push_group(ops)?;
+        self.redo.clear();
+        Ok(result)
+    }
+
+    fn push_group(&mut self, ops: Vec<DraftOp>) -> CoreResult<EditResult> {
+        if ops.is_empty() {
+            return Err(invalid("There is nothing to apply"));
+        }
+        let mut effects = Vec::with_capacity(ops.len());
+        for op in &ops {
+            match self.root_mut()?.apply(op) {
+                Ok(effect) => effects.push(effect),
+                Err(e) => {
+                    if !effects.is_empty() {
+                        // Roll the earlier ops of this step back.
+                        self.rebuild(self.ops.clone())?;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        let (touched, reshaped) = touched_and_reshaped(&effects);
+        self.groups.push(ops.len());
+        self.ops.extend(ops);
+        self.effects.extend(effects);
         self.revision += 1;
-        self.edit_result(&touched, &reshaped)
+        Ok(self.edit_result(&touched, &reshaped))
     }
 
     /// Re-parse the original and apply `ops` to it; on success this becomes the
-    /// live CST. On failure nothing changes.
+    /// live tree. On failure nothing changes.
     fn rebuild(&mut self, ops: Vec<DraftOp>) -> CoreResult<()> {
-        let root =
-            CstRootNode::parse(self.original_text()?, &parse_options(self.kind)).map_err(|e| {
-                CoreError::new(
-                    ErrorCode::Internal,
-                    format!("Re-parse of the original failed: {}", e.kind()),
-                )
-            })?;
+        let mut root = self.parse_original().ok_or_else(|| {
+            CoreError::new(ErrorCode::Internal, "Re-parse of the original failed")
+        })?;
         let effects = ops
             .iter()
-            .map(|op| apply_op(&root, op))
+            .map(|op| root.apply(op))
             .collect::<CoreResult<Vec<_>>>()?;
         self.root = Some(root);
         self.ops = ops;
@@ -270,39 +289,38 @@ impl DocumentSession {
         Ok(())
     }
 
+    /// Undo the last step (a single op or a whole batch).
     pub fn undo(&mut self) -> CoreResult<EditResult> {
         self.editable_root()?;
-        let mut ops = self.ops.clone();
-        let (Some(dropped), Some(effect)) = (ops.pop(), self.effects.last().cloned()) else {
+        let Some(&n) = self.groups.last() else {
             return Err(invalid("There is nothing to undo"));
         };
+        let keep = self.ops.len() - n;
+        let (touched, reshaped) = touched_and_reshaped(&self.effects[keep..]);
+        let mut ops = self.ops.clone();
+        let dropped = ops.split_off(keep);
         self.rebuild(ops)?;
+        self.groups.pop();
         self.redo.push(dropped);
         self.revision += 1;
-        Ok(self.edit_result(&effect.touched, &effect.reshaped))
+        Ok(self.edit_result(&touched, &reshaped))
     }
 
     pub fn redo(&mut self) -> CoreResult<EditResult> {
-        let root = self.editable_root()?;
-        let Some(op) = self.redo.pop() else {
+        self.editable_root()?;
+        let Some(ops) = self.redo.pop() else {
             return Err(invalid("There is nothing to redo"));
         };
-        match apply_op(&root, &op) {
-            Ok(effect) => Ok(self.commit(op, effect)),
-            Err(e) => {
-                self.redo.push(op);
-                Err(e)
-            }
-        }
+        self.push_group(ops.clone())
+            .inspect_err(|_| self.redo.push(ops))
     }
 
     /// Does `pointer` address an array in the live document?
     fn is_array_now(&self, pointer: &str) -> bool {
-        let (Some(root), Ok(segments)) = (self.root.as_ref(), parse_pointer(pointer)) else {
-            return false;
-        };
-        cst::resolve(root, &segments)
-            .is_some_and(|t| matches!(t.node, CstNode::Container(CstContainerNode::Array(_))))
+        self.root
+            .as_ref()
+            .and_then(|r| r.tree(pointer, 0, &[]))
+            .is_some_and(|t| t.kind == NodeKind::Array)
     }
 
     /// First later op that depends on op `index` (DD15, R18), if any.
@@ -338,6 +356,17 @@ impl DocumentSession {
         let mut ops = self.ops.clone();
         ops.remove(index);
         self.rebuild(ops)?;
+        // Shrink the undo step that held the op.
+        let mut end = 0;
+        if let Some(g) = self.groups.iter().position(|n| {
+            end += n;
+            index < end
+        }) {
+            self.groups[g] -= 1;
+            if self.groups[g] == 0 {
+                self.groups.remove(g);
+            }
+        }
         self.redo.clear();
         self.revision += 1;
         Ok(self.edit_result(&effect.touched, &effect.reshaped))
@@ -353,6 +382,7 @@ impl DocumentSession {
         }
         self.ops.clear();
         self.effects.clear();
+        self.groups.clear();
         self.revision += 1;
     }
 
@@ -389,7 +419,7 @@ impl DocumentSession {
         if self.ops.is_empty() {
             return self.original.clone();
         }
-        let text = root.to_string();
+        let text = root.render();
         let mut out = Vec::with_capacity(self.bom_len() + text.len());
         if self.has_bom {
             out.extend_from_slice(&BOM);
@@ -400,9 +430,7 @@ impl DocumentSession {
 
     /// Current draft as a serde value for schema validation (None if not editable).
     pub fn to_value(&self) -> Option<serde_json::Value> {
-        Some(cst::to_json(&cst::node_to_value(
-            &self.root.as_ref()?.value()?,
-        )))
+        Some(self.root.as_ref()?.value().to_json())
     }
 
     /// Synchronous diagnostics (syntax, duplicate keys, type) of the draft.
@@ -475,7 +503,7 @@ impl DocumentSession {
                 };
             }
         };
-        let diff = self.disk_diff(&disk_root);
+        let diff = self.disk_diff(disk_root.as_ref());
         let disk_changes = diff
             .changes
             .into_iter()
@@ -506,21 +534,17 @@ impl DocumentSession {
     }
 
     /// Original → disk changes (C4) and the draft pointers that overlap them (R16).
-    fn disk_diff(&self, disk_root: &CstRootNode) -> DiskDiff {
-        let disk_value = disk_root.value().map(|n| cst::node_to_value(&n));
-        let original_value = self.original_value();
-        let (Some(original), Some(disk)) = (original_value.as_ref(), disk_value.as_ref()) else {
+    fn disk_diff(&self, disk_root: &dyn Syntax) -> DiskDiff {
+        let disk = disk_root.value();
+        let Some(original) = self.original_value() else {
             return DiskDiff::default();
         };
-        let changes = changes::diff_values(original, disk);
+        let changes = changes::diff_values(&original, &disk);
         let is_array = |p: &str| {
             parse_pointer(p).is_ok_and(|segments| {
-                [original, disk].iter().any(|v| {
-                    matches!(
-                        cst::lookup(v, &segments),
-                        Some(jsonc_parser::cst::CstInputValue::Array(_))
-                    )
-                })
+                [&original, &disk]
+                    .iter()
+                    .any(|v| matches!(v.lookup(&segments), Some(Val::Array(_))))
             })
         };
         let mut overlapping: Vec<Pointer> = Vec::new();
@@ -539,12 +563,15 @@ impl DocumentSession {
         }
     }
 
-    /// The original document as a neutral value tree (re-parsed; only on conflict/review).
-    fn original_value(&self) -> Option<jsonc_parser::cst::CstInputValue> {
+    /// A fresh parse of the original bytes (None when not editable).
+    fn parse_original(&self) -> Option<Box<dyn Syntax>> {
         self.root.as_ref()?;
-        let root =
-            CstRootNode::parse(self.original_text().ok()?, &parse_options(self.kind)).ok()?;
-        Some(cst::node_to_value(&root.value()?))
+        scan::load(&self.original, self.kind).result.ok()
+    }
+
+    /// The original document as a neutral value tree (re-parsed; only on conflict/review).
+    fn original_value(&self) -> Option<Val> {
+        Some(self.parse_original()?.value())
     }
 
     /// Replay the draft onto new disk bytes and rebase (C3). Errors with
@@ -552,8 +579,8 @@ impl DocumentSession {
     pub fn reapply_onto(&mut self, disk_bytes: Vec<u8>) -> CoreResult<EditResult> {
         self.editable_root()?;
         let loaded = scan::load(&disk_bytes, self.kind);
-        let disk_root = loaded.result.map_err(|b| b.to_error())?;
-        let diff = self.disk_diff(&disk_root);
+        let mut disk_root = loaded.result.map_err(|b| b.to_error())?;
+        let diff = self.disk_diff(disk_root.as_ref());
         if let Some(path) = diff.overlapping.first() {
             return Err(CoreError::new(
                 ErrorCode::ExternalChangeConflict,
@@ -565,7 +592,7 @@ impl DocumentSession {
         let effects = self
             .ops
             .iter()
-            .map(|op| apply_op(&disk_root, op))
+            .map(|op| disk_root.apply(op))
             .collect::<CoreResult<Vec<_>>>()
             .map_err(|e| {
                 CoreError::new(
@@ -602,6 +629,7 @@ impl DocumentSession {
         self.ops.clear();
         self.redo.clear();
         self.effects.clear();
+        self.groups.clear();
         self.revision += 1;
     }
 
@@ -624,6 +652,17 @@ impl DocumentSession {
         }
         out
     }
+}
+
+/// Union of the touched and reshaped pointers of `effects`.
+fn touched_and_reshaped(effects: &[OpEffect]) -> (Vec<Pointer>, Vec<Pointer>) {
+    let mut touched = Vec::new();
+    let mut reshaped = Vec::new();
+    for e in effects {
+        touched.extend(e.touched.iter().cloned());
+        reshaped.extend(e.reshaped.iter().cloned());
+    }
+    (touched, reshaped)
 }
 
 #[derive(Default)]

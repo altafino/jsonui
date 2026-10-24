@@ -15,7 +15,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
   );
 }
 
-export const WELCOME_COPY = "Edit JSON settings as forms. Every save makes a backup first.";
+export const WELCOME_COPY = "Edit JSON, YAML and TOML settings as forms. Every save makes a backup first.";
 
 export function Welcome() {
   const openDialog = useApp((s) => s.openDialog);
@@ -26,7 +26,7 @@ export function Welcome() {
         <p className="mt-2 text-fg">{WELCOME_COPY}</p>
         <div className="mt-6 flex flex-col items-stretch gap-2">
           <Button variant="primary" className="h-10 justify-start" onClick={() => void addFile()}>
-            <FilePlus className="size-4" aria-hidden /> Add JSON file
+            <FilePlus className="size-4" aria-hidden /> Add config file
           </Button>
           <Button className="h-10 justify-start" onClick={() => openDialog({ kind: "discover" })}>
             <FolderSearch className="size-4" aria-hidden /> Discover Claude Code settings

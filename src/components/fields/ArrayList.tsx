@@ -14,6 +14,7 @@ import { ChangedDot } from "../ui/Chip";
 import { Children } from "./Containers";
 import { ScalarControl } from "./Field";
 import { idFor, useEnv, useHint, useNode } from "./context";
+import { ItemSelect } from "./Removal";
 
 const PAGE = 100;
 
@@ -138,6 +139,7 @@ function ScalarItem(props: ItemProps) {
       className={clsx("group relative flex items-center gap-2 border-b border-line py-1 pl-3 pr-3 hover:bg-hover focus-within:bg-hover", props.dragging && "opacity-50")}
     >
       {node.changed ? <span className="absolute left-0.5 top-1/2 -translate-y-1/2"><ChangedDot /></span> : null}
+      <ItemSelect pointer={pointer} label={`item ${index + 1}`} isProtected={hint?.protected} />
       <Handle p={pointer} index={index} count={count} frozen={frozen} />
       <span className="w-6 shrink-0 text-right mono text-sm text-muted" aria-hidden>{index + 1}</span>
       <span id={labelId} className="sr-only">{arrayLabel} item {index + 1}{props.mixed ? `, ${node.kind}` : ""}</span>
@@ -147,9 +149,9 @@ function ScalarItem(props: ItemProps) {
         </div>
       </div>
       {props.mixed ? <span className="mono text-xs text-muted">{node.kind}</span> : null}
-      <button type="button" disabled={frozen} aria-label={`Remove item ${index + 1}`} title={`Remove item ${index + 1}`} onClick={() => void removeAt(fileId, pointer)} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg disabled:opacity-50">
+      {hint?.protected ? null : <button type="button" disabled={frozen} aria-label={`Remove item ${index + 1}`} title={`Remove item ${index + 1}`} onClick={() => void removeAt(fileId, pointer)} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg disabled:opacity-50">
         <X className="size-4" aria-hidden />
-      </button>
+      </button>}
     </div>
   );
 }
@@ -158,6 +160,7 @@ function ContainerItem(props: ItemProps) {
   const { fileId, frozen, filterActive } = useEnv();
   const { pointer, index, count, move, arrayPointer, level, itemSummary } = props;
   const node = useNode(pointer);
+  const hint = useHint(pointer);
   const nodes = useDocs((s) => s.docs[fileId]?.nodes);
   const expanded = useDocs((s) => !!s.docs[fileId]?.expanded[pointer]);
   if (!node || !nodes) return null;
@@ -180,6 +183,7 @@ function ContainerItem(props: ItemProps) {
         className="group relative flex items-center gap-2 border-b border-line row-h py-1 pl-3 pr-3 hover:bg-hover focus-within:bg-hover"
       >
         {node.changed ? <span className="absolute left-0.5 top-1/2 -translate-y-1/2"><ChangedDot /></span> : null}
+        <ItemSelect pointer={pointer} label={`item ${index + 1}`} isProtected={hint?.protected} />
         <Handle p={pointer} index={index} count={count} frozen={frozen} />
         <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => toggleExpanded(fileId, pointer)} className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left">
           {open ? <ChevronDown className="size-4 shrink-0" aria-hidden /> : <ChevronRight className="size-4 shrink-0" aria-hidden />}
@@ -197,7 +201,7 @@ function ContainerItem(props: ItemProps) {
             { label: "Duplicate", icon: <Copy className="size-4" aria-hidden />, disabled: frozen, onSelect: () => void duplicate() },
             { label: "Move up", disabled: frozen || index === 0, onSelect: () => move(index, index - 1) },
             { label: "Move down", disabled: frozen || index === count - 1, onSelect: () => move(index, index + 1) },
-            { label: "Remove", danger: true, disabled: frozen, separatorBefore: true, onSelect: () => void removeAt(fileId, pointer) },
+            ...(hint?.protected ? [] : [{ label: "Remove", danger: true, disabled: frozen, separatorBefore: true, onSelect: () => void removeAt(fileId, pointer) }]),
           ]}
         />
       </div>

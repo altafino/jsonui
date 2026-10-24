@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=ConfigDeck
+GenericName=Configuration editor
+Comment=Edit JSON, JSONC, YAML and TOML configuration as forms
+Exec=configdeck
+Icon=configdeck
+Terminal=false
+Categories=Development;
+Keywords=json;jsonc;yaml;toml;configuration;
+StartupWMClass=configdeck

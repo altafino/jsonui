@@ -1,0 +1,43 @@
+# ConfigDeck sample service. Fake values only.
+title = "Demo service" # display name
+port = 8080 # http
+debug = false
+ratio = 1.50
+big = 1_000
+mask = 0x1F
+started = 1979-05-27T07:32:00Z
+tags = ["a", "b", "c"]
+ports = [
+  8000, # primary
+  8001,
+  8002,
+]
+owner.name = "Ann"
+owner.email = "ann@example.com"
+point = { x = 1, y = 2 }
+"odd key" = 3
+
+# Database settings
+[database]
+host = "localhost"
+password = "sk-test-0123456789abcdef"
+# retry policy
+retries = 3
+
+[database.pool]
+size = 10
+
+[[plugins]]
+name = "alpha"
+enabled = true
+
+# second plugin
+[[plugins]]
+name = "beta"
+enabled = false
+
+[plugins.options]
+level = "debug"
+
+[servers.alpha]
+ip = "10.0.0.1"

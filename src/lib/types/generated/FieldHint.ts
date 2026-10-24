@@ -35,4 +35,9 @@ itemSummary: string | null,
 /**
  * Sensitive setting warning (spec §7, e.g. permissions).
  */
-sensitive: boolean, };
+sensitive: boolean, 
+/**
+ * Cannot be removed or renamed: `required` by the schema, or listed in
+ * the preset's `protectedPointers`. Enforced in Rust, mirrored in the UI.
+ */
+protected: boolean, };

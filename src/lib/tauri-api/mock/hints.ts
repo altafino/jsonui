@@ -5,14 +5,14 @@ import { getAt, type J } from "./json";
 
 const blank = (pointer: string): FieldHint => ({
   pointer, valueType: null, required: false, title: null, description: null, enumValues: null, defaultJson: null, format: null, minimum: null, maximum: null,
-  minLength: null, maxLength: null, pattern: null, secret: false, addableProperties: [], openMap: false, itemSummary: null, sensitive: false,
+  minLength: null, maxLength: null, pattern: null, secret: false, addableProperties: [], openMap: false, itemSummary: null, sensitive: false, protected: false,
 });
 
 type Table = Record<string, Partial<FieldHint>>;
 
 const FLAGS: Table = {
   "": { addableProperties: ["verboseLogging", "region", "homepage"] },
-  "/application": { title: "Application", minLength: 1 },
+  "/application": { title: "Application", minLength: 1, required: true, protected: true },
   "/enabled": { title: "Enabled" },
   "/retryCount": { minimum: "0", maximum: "10", format: "integer", description: "How many times a failed call is retried." },
   "/timeoutSeconds": { minimum: "0" },

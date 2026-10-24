@@ -1,0 +1,7 @@
+# Service settings
+name = "api"   # display name
+debug = false  # verbose logging
+retries = 3
+
+[server]
+port = 8080 # http
