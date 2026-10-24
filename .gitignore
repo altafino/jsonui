@@ -32,3 +32,7 @@ coverage/
 
 # agent worktrees
 .claude/
+
+# Rust build tree and Arch package output
+src-tauri/target/
+packaging/build/

@@ -18,7 +18,7 @@ Full records (question, options, evidence, answer) are in
 - R5 Symlinks: confirm once, write through to the target; nlink>1 confirm; copy mode bits.
 - R6 No raw paths from the webview; pickers run Rust-side.
 - R7 Format-neutral contracts; jsonc-parser confined to `core/document` (+ redact); no Format trait yet.
-- R8 Local AppImage/deb on Manjaro; portable build on ubuntu-22.04 CI.
+- R8 Local AppImage/deb on Manjaro; portable build on ubuntu-22.04 CI. AUR recipes: source package `configdeck` and release package `configdeck-bin` (`docs/packaging.md`).
 - R9 Rust is the only validator (no Ajv).
 - R10 UTF-8 BOM stripped on read, restored on save.
 - R11 Playwright (mocked IPC) + WebdriverIO (real app) + Vitest + Rust integration tests.

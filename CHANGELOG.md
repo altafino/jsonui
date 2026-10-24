@@ -5,8 +5,12 @@ All notable changes to ConfigDeck are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-24
+
 ### Added
 
+- **Apache License 2.0.**
+- **Arch and Manjaro packages.** `make aur-install` builds and installs from a checkout. After a release is published, AUR users install `configdeck` (build from source) or `configdeck-bin` (the release build).
 - **Remove buttons on every setting**, not only in the row's hover menu.
 - **Remove several items at once:** **Select** in the toolbar puts checkboxes on
   settings, sections, list items and map entries; **Remove selected** removes them as

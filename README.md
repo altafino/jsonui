@@ -15,6 +15,25 @@ those formats works, and a JSON Schema can describe any of them.
 
 Built with Tauri 2 (Rust core) and React + TypeScript.
 
+## Install on Manjaro / Arch
+
+From this checkout:
+
+```sh
+make aur-install
+```
+
+That compiles a native package and installs it (`sudo`). `make aur` only builds the package; `sudo pacman -U packaging/build/configdeck/*.pkg.tar.zst` installs it. `make aur-deb` packages an already built `.deb` without compiling.
+
+After a release is on the AUR:
+
+```sh
+yay -S configdeck       # compile the tagged source
+yay -S configdeck-bin   # install the release build
+```
+
+`pamac build configdeck` and `paru -S configdeck` are the same packages. Publishing steps are in `docs/packaging.md`.
+
 ## Run on Manjaro / Arch
 
 Prerequisites (from the Tauri v2 Linux guide):
@@ -66,3 +85,7 @@ build specification with review ledgers in `docs/spec/`.
 ## Limitations
 
 See `docs/known-limitations.md`.
+
+## License
+
+Copyright 2026 Stefan. Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).

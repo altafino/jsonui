@@ -1,0 +1,68 @@
+# Maintainer: Stefan <st.wuthrich@gmail.com>
+# Binary package. Installs the Ubuntu 22.04 .deb from a GitHub release so
+# users do not compile Rust. Conflicts with the source package `configdeck`.
+
+pkgname=configdeck-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Local-first form editor for JSON, JSONC, YAML and TOML configs'
+arch=('x86_64')
+url='https://github.com/altafino/jsonui'
+license=('Apache-2.0')
+depends=(
+	'cairo'
+	'desktop-file-utils'
+	'gcc-libs'
+	'gdk-pixbuf2'
+	'glib2'
+	'glibc'
+	'gtk3'
+	'hicolor-icon-theme'
+	'libsoup3'
+	'openssl'
+	'pango'
+	'webkit2gtk-4.1'
+)
+provides=('configdeck')
+conflicts=('configdeck')
+options=('!strip' '!debug')
+
+_deb="ConfigDeck_${pkgver}_amd64.deb"
+# configdeck.desktop is packaging/linux/configdeck.desktop (symlink in this directory).
+# LICENSE is the repository root license (symlink in this directory).
+source=('configdeck.desktop' 'LICENSE')
+sha256sums=(
+	'027970942e8ee637c83f011a4124d0d7fda1856046b2fdc2d788a2f9bc5b30f6'
+	'cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30'
+)
+noextract=("${_deb}")
+
+# scripts/aur-install.sh --deb sets CONFIGDECK_LOCAL_SHA256 and copies the
+# .deb next to this file under its release name.
+if [[ -n ${CONFIGDECK_LOCAL_SHA256-} ]]; then
+	source_x86_64=("${_deb}")
+	sha256sums_x86_64=("${CONFIGDECK_LOCAL_SHA256}")
+else
+	source_x86_64=("${_deb}::https://github.com/altafino/jsonui/releases/download/v${pkgver}/${_deb}")
+	# scripts/aur-publish.sh replaces SKIP with the release asset checksum.
+	sha256sums_x86_64=('SKIP')
+fi
+
+package() {
+	local deb="${srcdir}/${_deb}"
+	local odd="${pkgdir}/usr/share/icons/hicolor/256x256@2/apps/configdeck.png"
+	[[ -f "$deb" ]] || { printf 'missing %s\n' "$deb" >&2; return 1; }
+	bsdtar -O -xf "$deb" data.tar.gz | bsdtar -C "${pkgdir}" -xf -
+	# Tauri's deb uses a non-hicolor icon directory.
+	if [[ -f "$odd" ]]; then
+		install -Dm644 "$odd" "${pkgdir}/usr/share/icons/hicolor/256x256/apps/configdeck.png"
+		rm -rf "${pkgdir}/usr/share/icons/hicolor/256x256@2"
+	fi
+	rm -f "${pkgdir}/usr/share/applications/ConfigDeck.desktop"
+	install -Dm644 "${srcdir}/configdeck.desktop" \
+		"${pkgdir}/usr/share/applications/configdeck.desktop"
+	install -Dm644 "${srcdir}/LICENSE" \
+		"${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+	# The bundled sample is compiled into the binary; the deb copy is unused.
+	rm -rf "${pkgdir}/usr/lib"
+}

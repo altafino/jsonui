@@ -1,0 +1,99 @@
+# Maintainer: Stefan <st.wuthrich@gmail.com>
+# Source package for the AUR. The GitHub repository must be public so makepkg
+# can download the tag archive (see scripts/aur-publish.sh).
+
+pkgname=configdeck
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Local-first form editor for JSON, JSONC, YAML and TOML configs'
+arch=('x86_64' 'aarch64')
+url='https://github.com/altafino/jsonui'
+license=('Apache-2.0')
+depends=(
+	'cairo'
+	'desktop-file-utils'
+	'gcc-libs'
+	'gdk-pixbuf2'
+	'glib2'
+	'glibc'
+	'gtk3'
+	'hicolor-icon-theme'
+	'libsoup3'
+	'openssl'
+	'pango'
+	'webkit2gtk-4.1'
+)
+# Distro pnpm is 11 and rejects this lockfile (minimumReleaseAge). prepare()
+# installs the pnpm 10 release the lockfile was built with.
+makedepends=(
+	'librsvg'
+	'nodejs'
+	'rust'
+)
+options=('!lto' '!debug')
+conflicts=('configdeck-bin')
+
+_repo='jsonui'
+_pnpm_ver='10.12.3'
+_tarball="configdeck-${pkgver}.tar.gz"
+
+# scripts/aur-install.sh sets CONFIGDECK_LOCAL_SHA256 and places the tarball
+# next to a copy of this file. Published builds use the tag archive.
+if [[ -n ${CONFIGDECK_LOCAL_SHA256-} ]]; then
+	source=("${_tarball}")
+	sha256sums=("${CONFIGDECK_LOCAL_SHA256}")
+else
+	source=("${_tarball}::https://github.com/altafino/jsonui/archive/refs/tags/v${pkgver}.tar.gz")
+	# scripts/aur-publish.sh replaces SKIP with the tag tarball checksum.
+	sha256sums=('SKIP')
+fi
+
+_build_env() {
+	local prefix="${srcdir}/.pnpm-prefix"
+	if [[ ! -x "${prefix}/bin/pnpm" ]] || [[ "$("${prefix}/bin/pnpm" --version)" != "${_pnpm_ver}" ]]; then
+		npm install --global --prefix "${prefix}" --no-audit --no-fund "pnpm@${_pnpm_ver}"
+	fi
+	export PATH="${prefix}/bin:${PATH}"
+	hash -r
+	export CARGO_HOME="${srcdir}/.cargo"
+	export CARGO_TARGET_DIR="${srcdir}/${_repo}-${pkgver}/src-tauri/target"
+}
+
+prepare() {
+	_build_env
+	cd "${_repo}-${pkgver}"
+	printf 'pnpm install\n' >&2
+	pnpm install --frozen-lockfile
+	printf 'cargo fetch\n' >&2
+	cargo fetch --locked --manifest-path src-tauri/Cargo.toml \
+		--target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+	_build_env
+	cd "${_repo}-${pkgver}"
+	printf 'pnpm build\n' >&2
+	pnpm build
+	printf 'cargo build --release\n' >&2
+	cargo build --frozen --release --manifest-path src-tauri/Cargo.toml
+}
+
+package() {
+	cd "${_repo}-${pkgver}"
+	install -Dm755 src-tauri/target/release/configdeck "${pkgdir}/usr/bin/configdeck"
+	install -Dm644 packaging/linux/configdeck.desktop \
+		"${pkgdir}/usr/share/applications/configdeck.desktop"
+	install -Dm644 src-tauri/icons/32x32.png \
+		"${pkgdir}/usr/share/icons/hicolor/32x32/apps/configdeck.png"
+	install -Dm644 src-tauri/icons/128x128.png \
+		"${pkgdir}/usr/share/icons/hicolor/128x128/apps/configdeck.png"
+	install -Dm644 src-tauri/icons/128x128@2x.png \
+		"${pkgdir}/usr/share/icons/hicolor/256x256/apps/configdeck.png"
+	install -Dm644 src-tauri/icons/icon.png \
+		"${pkgdir}/usr/share/icons/hicolor/512x512/apps/configdeck.png"
+	if [[ -f LICENSE ]]; then
+		install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+	elif [[ -f LICENSE.md ]]; then
+		install -Dm644 LICENSE.md "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+	fi
+}
