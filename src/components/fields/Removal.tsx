@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { removeAt, toggleSelected, useDocs } from "../../lib/store/doc-store";
 import { Tip } from "../ui/Tooltip";
 import { useEnv } from "./context";
@@ -11,15 +11,18 @@ export function useSelecting(): boolean {
 
 export const PROTECTED_REASON = "Required, can't be removed";
 
-/** Always-visible muted remove button (hidden in selection mode). Nothing for rows that can't go. */
+/** Shown on row hover or focus, same as the row actions menu. Nothing for rows that can't go. */
+export const rowRemoveClass =
+  "grid shrink-0 place-items-center rounded-md text-muted opacity-0 hover:bg-hover hover:text-fg focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 disabled:cursor-not-allowed";
+
 export function RowRemoval({ pointer, label, removable, isProtected }: { pointer: string; label: string; removable: boolean; isProtected?: boolean }) {
   const { fileId, frozen } = useEnv();
   const selecting = useSelecting();
   if (!removable || isProtected || selecting) return null;
   return (
     <Tip content={`Remove ${label}`}>
-      <button type="button" disabled={frozen} aria-label={`Remove ${label}`} onClick={() => void removeAt(fileId, pointer)} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg disabled:opacity-50">
-        <X className="size-4" aria-hidden />
+      <button type="button" disabled={frozen} aria-label={`Remove ${label}`} onClick={() => void removeAt(fileId, pointer)} className={`${rowRemoveClass} size-8`}>
+        <Trash2 className="size-4" aria-hidden />
       </button>
     </Tip>
   );

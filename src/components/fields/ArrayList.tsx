@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ChevronDown, ChevronRight, Copy, Ellipsis, GripVertical, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Ellipsis, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { treeToJson } from "../../lib/json/tree";
 import { summarizeItem } from "../../lib/json/summary";
@@ -14,7 +14,7 @@ import { ChangedDot } from "../ui/Chip";
 import { Children } from "./Containers";
 import { ScalarControl } from "./Field";
 import { idFor, useEnv, useHint, useNode } from "./context";
-import { ItemSelect } from "./Removal";
+import { ItemSelect, rowRemoveClass } from "./Removal";
 
 const PAGE = 100;
 
@@ -149,8 +149,8 @@ function ScalarItem(props: ItemProps) {
         </div>
       </div>
       {props.mixed ? <span className="mono text-xs text-muted">{node.kind}</span> : null}
-      {hint?.protected ? null : <button type="button" disabled={frozen} aria-label={`Remove item ${index + 1}`} title={`Remove item ${index + 1}`} onClick={() => void removeAt(fileId, pointer)} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg disabled:opacity-50">
-        <X className="size-4" aria-hidden />
+      {hint?.protected ? null : <button type="button" disabled={frozen} aria-label={`Remove item ${index + 1}`} title={`Remove item ${index + 1}`} onClick={() => void removeAt(fileId, pointer)} className={`${rowRemoveClass} size-8`}>
+        <Trash2 className="size-4" aria-hidden />
       </button>}
     </div>
   );

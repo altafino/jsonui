@@ -19,11 +19,11 @@ export function TitleBar() {
           type="button"
           onClick={() => openDialog({ kind: "command" })}
           className="flex h-9 w-full items-center gap-2 rounded-md border border-ctl px-3 text-left text-[0.9375rem] text-muted hover:bg-hover disabled:opacity-60"
-          aria-label="Search settings in this file"
+          aria-label="Go to setting"
           aria-keyshortcuts="Control+K Meta+K"
         >
           <Search className="size-4" aria-hidden />
-          <span className="flex-1 truncate">Search settings in this file</span>
+          <span className="flex-1 truncate">Go to setting</span>
           <kbd className="mono text-[0.8125rem]">{formatKeys("Mod+K")}</kbd>
         </button> : null}
       </div>

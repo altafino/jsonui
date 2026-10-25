@@ -1,6 +1,6 @@
 import { displayPath, humanize } from "../json/pointer";
 import type { FieldHint } from "../types/generated/FieldHint";
-import type { NodeCache } from "./cache";
+import type { CachedNode, NodeCache } from "./cache";
 
 export interface Filter {
   query: string;
@@ -18,9 +18,7 @@ export function computeVisible(nodes: NodeCache, root: string, filter: Filter, h
 
   const matches = (ptr: string) => {
     const n = nodes[ptr];
-    const h = hints[ptr];
-    const hay = [h?.title ?? (n.key !== null ? humanize(n.key) : `Item ${(n.index ?? 0) + 1}`), n.key ?? "", displayPath(ptr), h?.description ?? ""];
-    return hay.some((s) => s.toLowerCase().includes(q));
+    return !!n && fieldMatches(n, q, hints);
   };
 
   const visit = (ptr: string, inherited: boolean): boolean => {
@@ -43,4 +41,24 @@ export function computeVisible(nodes: NodeCache, root: string, filter: Filter, h
   const r = nodes[root];
   for (const c of r?.childPointers ?? []) visit(c, false);
   return out;
+}
+
+function fieldMatches(n: CachedNode, q: string, hints: Record<string, FieldHint>): boolean {
+  const h = hints[n.pointer];
+  const hay = [h?.title ?? (n.key !== null ? humanize(n.key) : `Item ${(n.index ?? 0) + 1}`), n.key ?? "", displayPath(n.pointer), h?.description ?? ""];
+  return hay.some((s) => s.toLowerCase().includes(q));
+}
+
+/** Self-matches of a form filter against every loaded field except the root. Null when the query is empty. */
+export function countQueryMatches(nodes: NodeCache, query: string, hints: Record<string, FieldHint>): { matches: number; total: number } | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  let matches = 0;
+  let total = 0;
+  for (const n of Object.values(nodes)) {
+    if (n.pointer === "") continue;
+    total += 1;
+    if (fieldMatches(n, q, hints)) matches += 1;
+  }
+  return { matches, total };
 }

@@ -192,8 +192,9 @@ describe("search and filters", () => {
   it("shows the exact empty-state copy for no match and for nothing changed", async () => {
     const user = userEvent.setup();
     await bootApp({ open: "feature-flags.json" });
-    await user.type(await screen.findByRole("searchbox", { name: "Search fields" }), "xyz");
+    await user.type(await screen.findByRole("searchbox", { name: "Filter this form" }), "xyz");
     expect(await screen.findByText('No fields match "xyz"')).toBeInTheDocument();
+    expect(screen.getByTestId("filter-count")).toHaveTextContent(/^0 of \d+$/);
     await user.click(within(screen.getByTestId("empty-state")).getByRole("button", { name: "Clear search" }));
     await user.click(screen.getByRole("button", { name: "Changed only" }));
     expect(await screen.findByText("No unsaved changes", { selector: "p" })).toBeInTheDocument();
@@ -204,7 +205,7 @@ describe("search and filters", () => {
   it("search expands matching parents", async () => {
     const user = userEvent.setup();
     await bootApp({ open: "feature-flags.json" });
-    await user.type(await screen.findByRole("searchbox", { name: "Search fields" }), "to file");
+    await user.type(await screen.findByRole("searchbox", { name: "Filter this form" }), "to file");
     expect(await screen.findByRole("switch", { name: "To file" })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Enabled" })).not.toBeInTheDocument();
   });

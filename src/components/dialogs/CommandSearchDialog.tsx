@@ -47,8 +47,8 @@ export function CommandSearchDialog({ fileId }: { fileId: string }) {
       <RD.Portal>
         <RD.Overlay className="fixed inset-0 z-40" style={{ background: "var(--overlay)" }} />
         <RD.Content className="cd-popover fixed left-1/2 top-[14vh] z-50 w-[min(640px,90vw)] -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-sidebar" data-testid="command-search">
-          <RD.Title className="sr-only">Search settings in this file</RD.Title>
-          <RD.Description className="sr-only">Type to filter fields, use the arrow keys to choose, Enter to go to the field.</RD.Description>
+          <RD.Title className="sr-only">Go to setting</RD.Title>
+          <RD.Description className="sr-only">Type to find a field. Enter jumps to it and leaves the rest of the form visible.</RD.Description>
           <div className="flex items-center gap-2 border-b border-line px-4">
             <Search className="size-4 text-muted" aria-hidden />
             <input
@@ -57,8 +57,8 @@ export function CommandSearchDialog({ fileId }: { fileId: string }) {
               aria-expanded
               aria-controls="cmd-list"
               aria-activedescendant={results[active] ? `cmd-opt-${active}` : undefined}
-              aria-label="Search settings in this file"
-              placeholder="Search settings in this file"
+              aria-label="Go to setting"
+              placeholder="Go to setting"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
@@ -78,6 +78,7 @@ export function CommandSearchDialog({ fileId }: { fileId: string }) {
               </li>
             ))}
           </ul>
+          <p className="border-t border-line px-4 py-2 text-[0.8125rem] text-muted">Enter jumps to the field. It does not hide the others.</p>
         </RD.Content>
       </RD.Portal>
     </RD.Root>

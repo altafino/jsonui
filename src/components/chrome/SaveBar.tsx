@@ -1,6 +1,9 @@
+import clsx from "clsx";
 import { CircleAlert, Loader, Check } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { useApp } from "../../lib/store/app-store";
-import { dismissSaveError, undoSave, useDocs } from "../../lib/store/doc-store";
+import { changePointers } from "../../lib/store/change-targets";
+import { dismissSaveError, refreshChanges, revealPointer, undoSave, useDocs } from "../../lib/store/doc-store";
 import { formatClock } from "../../lib/store/save-machine";
 import { requestSave, useSaveInfo } from "../../lib/store/selectors";
 import { Button } from "../ui/Button";
@@ -13,8 +16,9 @@ export function SaveBar() {
   const doc = useDocs((s) => (info.fileId ? s.docs[info.fileId] : undefined));
   const save = doc?.save ?? { phase: "idle" as const };
   const { dirty, gate } = info;
+  const quiet = dirty === 0 && save.phase !== "error" && save.phase !== "saved" && save.phase !== "saving";
 
-  let status: React.ReactNode;
+  let status: ReactNode;
   if (!doc) status = <span className="text-muted">Ready</span>;
   else if (save.phase === "saving") {
     status = (
@@ -35,14 +39,14 @@ export function SaveBar() {
         ) : null}
       </span>
     );
-  } else if (dirty > 0) {
-    status = (
-      <span>
-        Ready · {dirty} pending {dirty === 1 ? "change" : "changes"}
+  } else if (dirty > 0 && info.fileId) {
+    const extra = (
+      <>
         {!gate.enabled && gate.reason ? <span className="text-warn"> · {gate.reason}</span> : null}
         {info.warnings > 0 && gate.enabled ? <span className="text-warn"> · {info.warnings} {info.warnings === 1 ? "warning" : "warnings"}</span> : null}
-      </span>
+      </>
     );
+    status = <PendingChanges fileId={info.fileId} dirty={dirty} extra={extra} />;
   } else {
     status = <span className="text-muted">{save.phase === "settled" ? "All changes saved" : "No unsaved changes"}</span>;
   }
@@ -61,17 +65,64 @@ export function SaveBar() {
           <Button variant="ghost" className="h-7" onClick={() => dismissSaveError(info.fileId!)}>Dismiss</Button>
         </div>
       ) : null}
-      <div className="flex h-[72px] items-center gap-3 px-4">
-        <div role="status" aria-live="polite" data-testid="save-status" className="min-w-0 flex-1 truncate text-fg">{status}</div>
-        <Button disabled={dirty === 0} onClick={() => info.fileId && openDialog({ kind: "review", fileId: info.fileId })}>Review changes</Button>
-        <Tip content={gate.enabled ? null : gate.reason}>
-          <span>
-            <Button variant="primary" disabled={!gate.enabled} aria-disabled={!gate.enabled} onClick={requestSave} title={gate.reason ?? undefined} className="min-w-36 h-10">
-              Save changes
-            </Button>
-          </span>
-        </Tip>
+      <div data-testid="save-bar" data-savebar={quiet ? "quiet" : "open"} className={clsx("flex items-center gap-3 px-4", quiet ? "h-10" : "h-[72px]")}>
+        <div role="status" aria-live="polite" data-testid="save-status" className="min-w-0 flex-1 text-fg">{status}</div>
+        {dirty > 0 ? (
+          <>
+            <Button onClick={() => info.fileId && openDialog({ kind: "review", fileId: info.fileId })}>Review changes</Button>
+            <Tip content={gate.enabled ? null : gate.reason}>
+              <span>
+                <Button variant="primary" disabled={!gate.enabled} aria-disabled={!gate.enabled} onClick={requestSave} title={gate.reason ?? undefined} className="min-w-36 h-10">
+                  Save changes
+                </Button>
+              </span>
+            </Tip>
+          </>
+        ) : null}
       </div>
     </footer>
+  );
+}
+
+/** "N pending changes — show", plus previous and next when more than one field changed. */
+function PendingChanges({ fileId, dirty, extra }: { fileId: string; dirty: number; extra: ReactNode }) {
+  const changes = useDocs((s) => s.docs[fileId]?.changes);
+  const nodes = useDocs((s) => s.docs[fileId]?.nodes);
+  const ptrs = changePointers(changes ?? [], nodes ?? {});
+  const [index, setIndex] = useState(0);
+  const word = dirty === 1 ? "change" : "changes";
+
+  const go = async (i: number) => {
+    await refreshChanges(fileId);
+    const d = useDocs.getState().docs[fileId];
+    if (!d) return;
+    const list = changePointers(d.changes, d.nodes);
+    if (!list.length) return;
+    const next = ((i % list.length) + list.length) % list.length;
+    setIndex(next);
+    await revealPointer(fileId, list[next]);
+  };
+
+  return (
+    <span className="inline-flex min-w-0 flex-wrap items-center gap-x-2">
+      <span className="min-w-0">
+        Ready · {dirty} pending {word}
+        {extra}
+        {" — "}
+      </span>
+      <button type="button" aria-label={`Show pending ${word}`} onClick={() => void go(ptrs.length ? index : 0)} className="text-accent-fg underline underline-offset-2 hover:no-underline">
+        show
+      </button>
+      {ptrs.length > 1 ? (
+        <>
+          <button type="button" aria-label="Previous change" onClick={() => void go(index - 1)} className="text-accent-fg underline underline-offset-2 hover:no-underline">
+            Previous
+          </button>
+          <button type="button" aria-label="Next change" onClick={() => void go(index + 1)} className="text-accent-fg underline underline-offset-2 hover:no-underline">
+            Next
+          </button>
+        </>
+      ) : null}
+    </span>
   );
 }
