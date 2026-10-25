@@ -1,8 +1,8 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { CircleAlert, TriangleAlert } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../../lib/store/app-store";
-import { refreshChanges, revertChange, saveDocument } from "../../lib/store/doc-store";
+import { refreshChanges, revealPointer, revertChange, saveDocument } from "../../lib/store/doc-store";
 import { api, toCoreError } from "../../lib/tauri-api";
 import type { ChangeSummary } from "../../lib/types/generated/ChangeSummary";
 import type { Diagnostic } from "../../lib/types/generated/Diagnostic";
@@ -31,6 +31,7 @@ export function DiagnosticBlock({ items, tone, title }: { items: Diagnostic[]; t
 /** Review changes (DD15): Changes tab with per-change Revert, Text diff tab, warnings above the buttons. */
 export function ReviewDialog({ fileId }: { fileId: string }) {
   const close = useApp((s) => s.closeDialog);
+  const jumping = useRef(false);
   const [sum, setSum] = useState<ChangeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -68,6 +69,9 @@ export function ReviewDialog({ fileId }: { fileId: string }) {
       onClose={close}
       title="Review changes"
       description="Check what will be written. A backup of the current file is made first."
+      onCloseAutoFocus={(e) => {
+        if (jumping.current) e.preventDefault();
+      }}
       wide
       footer={
         <>
@@ -90,7 +94,17 @@ export function ReviewDialog({ fileId }: { fileId: string }) {
             ))}
           </Tabs.List>
           <Tabs.Content value="changes" className="pt-3">
-            <ChangeList changes={sum.changes} onRevert={(i) => void revert(i)} empty="No unsaved changes" label="Changes" />
+            <ChangeList
+              changes={sum.changes}
+              onRevert={(i) => void revert(i)}
+              onReveal={(pointer) => {
+                jumping.current = true;
+                close();
+                void revealPointer(fileId, pointer);
+              }}
+              empty="No unsaved changes"
+              label="Changes"
+            />
           </Tabs.Content>
           <Tabs.Content value="diff" className="pt-3">
             <TextDiff fileId={fileId} hunks={sum.hunks} />

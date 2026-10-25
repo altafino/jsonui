@@ -57,6 +57,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         files::clear_schema,
         files::reveal_managed_file,
         files::open_in_external_editor,
+        files::open_about_link,
         files::list_leftover_temp_files,
         files::remove_leftover_temp_files,
         files::get_preferences,

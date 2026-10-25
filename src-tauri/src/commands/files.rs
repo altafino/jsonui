@@ -354,9 +354,44 @@ pub fn set_preferences(state: State<AppState>, prefs: Preferences) -> CoreResult
     inner.registry.set_preferences(prefs)
 }
 
+/// Links the About dialog may open. The webview sends an id, not a URL (eng R6).
+pub fn about_url(which: &str) -> CoreResult<&'static str> {
+    match which {
+        "site" => Ok("https://altafino.com"),
+        "releases" => Ok("https://github.com/altafino/jsonui/releases"),
+        _ => Err(CoreError::new(
+            ErrorCode::InvalidOperation,
+            "That link is not available from About.",
+        )),
+    }
+}
+
+#[tauri::command]
+pub fn open_about_link<R: Runtime>(app: AppHandle<R>, which: String) -> CoreResult<()> {
+    let url = about_url(&which)?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| CoreError::new(ErrorCode::Io, e.to_string()))
+}
+
 /// App-owned directories (spec §8 persistence location).
 pub fn app_dirs<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
     Ok((app.path().app_config_dir()?, app.path().app_data_dir()?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::about_url;
+
+    #[test]
+    fn about_links_are_fixed() {
+        assert_eq!(about_url("site").unwrap(), "https://altafino.com");
+        assert_eq!(
+            about_url("releases").unwrap(),
+            "https://github.com/altafino/jsonui/releases"
+        );
+        assert!(about_url("https://example.com").is_err());
+    }
 }

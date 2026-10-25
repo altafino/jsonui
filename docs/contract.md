@@ -62,6 +62,7 @@ Errors reject with `CoreError` (`{ code, message, path, line, column, remediatio
 | `clear_schema` | `fileId` | `ManagedDocument` |
 | `reveal_managed_file` | `fileId` | `void` |
 | `open_in_external_editor` | `fileId` | `void` |
+| `open_about_link` | `which`: `"site"` or `"releases"` | `void` (opens `https://altafino.com` or the GitHub releases page; any other id is `INVALID_OPERATION`) |
 | `reveal_masked_value` | `fileId, maskId` | `string` |
 | `list_leftover_temp_files` | `fileId` | `string[]` (file names) |
 | `remove_leftover_temp_files` | `fileId` | `number` |

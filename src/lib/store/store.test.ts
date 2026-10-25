@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { EditResult } from "../types/generated/EditResult";
+import type { SemanticChange } from "../types/generated/SemanticChange";
 import type { TreeNode } from "../types/generated/TreeNode";
+import { changePointers } from "./change-targets";
 import { applyEditResult, putTree, type NodeCache } from "./cache";
 import { saveGate, saveReducer, type SaveState } from "./save-machine";
-import { computeVisible } from "./visibility";
+import { computeVisible, countQueryMatches } from "./visibility";
 
 const leaf = (pointer: string, kind: TreeNode["kind"], text: string, changed = false): TreeNode => ({
   pointer, key: pointer.split("/").pop() ?? null, index: null, kind, text, childCount: null, children: null, changed,
@@ -97,5 +99,34 @@ describe("field filter", () => {
     expect(computeVisible(c, "", { query: "", changedOnly: false }, {})).toBeNull();
     // a matching container shows all of its children
     expect(computeVisible(c, "", { query: "logging", changedOnly: false }, {})!.has("/logging/deep/x")).toBe(true);
+  });
+
+  it("counts self-matches against every loaded field", () => {
+    const c = seed();
+    expect(countQueryMatches(c, "  ", {})).toBeNull();
+    expect(countQueryMatches(c, "level", {})).toEqual({ matches: 1, total: 5 });
+    expect(countQueryMatches(c, "xyz", {})).toEqual({ matches: 0, total: 5 });
+  });
+});
+
+describe("change targets", () => {
+  const change = (pointer: string, kind: SemanticChange["kind"] = "changed"): SemanticChange => ({
+    pointer, kind, oldText: "1", newText: "2", masked: false, opIndex: 0, revertible: true,
+  });
+
+  it("uses the preview list, and changed leaves until that list arrives", () => {
+    const nodes = seed();
+    nodes["/debug"] = { ...nodes["/debug"], changed: true };
+    nodes[""] = { ...nodes[""], changed: true };
+    expect(changePointers([], nodes)).toEqual(["/debug"]);
+    expect(changePointers([change("/debug"), change("/logging/level")], nodes)).toEqual(["/debug", "/logging/level"]);
+    nodes["/logging/level"] = { ...nodes["/logging/level"], changed: true };
+    expect(changePointers([change("/debug")], nodes)).toEqual(["/debug", "/logging/level"]);
+  });
+
+  it("scrolls a removed field to the parent that is still on screen", () => {
+    const nodes = seed();
+    delete nodes["/logging/deep/x"];
+    expect(changePointers([change("/logging/deep/x", "removed")], nodes)).toEqual(["/logging/deep"]);
   });
 });

@@ -1,11 +1,11 @@
-import { Plus, X } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { addMember, removeAt, renameKey, useDocs } from "../../lib/store/doc-store";
 import { Button } from "../ui/Button";
 import { Field, ScalarControl } from "./Field";
 import { FieldError, INPUT, TextControl } from "./controls";
 import { idFor, jsonString, useEnv, useHint, useNode } from "./context";
-import { ItemSelect, PROTECTED_REASON } from "./Removal";
+import { ItemSelect, PROTECTED_REASON, rowRemoveClass } from "./Removal";
 
 /** Editable key/value table for open maps (env vars etc.): add, rename, remove; duplicate keys rejected. */
 export function MapEditor({ pointer, level }: { pointer: string; level: number }) {
@@ -95,8 +95,8 @@ function MapRow({ pointer, level, siblings }: { pointer: string; level: number; 
           {node.kind === "string" ? <TextControl node={node} hint={hint} labelId={labelId} disabled={frozen} /> : <ScalarControl node={node} hint={hint} labelId={labelId} disabled={frozen} />}
         </div>
         {hint?.protected ? null : (
-          <button type="button" disabled={frozen} aria-label={`Remove ${k}`} title={`Remove ${k}`} onClick={() => void removeAt(fileId, pointer)} className="grid size-[var(--ctl-h)] shrink-0 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg disabled:opacity-50">
-            <X className="size-4" aria-hidden />
+          <button type="button" disabled={frozen} aria-label={`Remove ${k}`} title={`Remove ${k}`} onClick={() => void removeAt(fileId, pointer)} className={`${rowRemoveClass} size-[var(--ctl-h)]`}>
+            <Trash2 className="size-4" aria-hidden />
           </button>
         )}
       </div>

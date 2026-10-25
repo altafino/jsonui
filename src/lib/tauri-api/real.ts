@@ -47,6 +47,7 @@ export const realApi: Api = {
   clearSchema: (fileId) => call("clear_schema", { fileId }),
   revealManagedFile: (fileId) => call("reveal_managed_file", { fileId }),
   openInExternalEditor: (fileId) => call("open_in_external_editor", { fileId }),
+  openAboutLink: (which) => call("open_about_link", { which }),
   revealMaskedValue: (fileId, maskId) => call("reveal_masked_value", { fileId, maskId }),
   listLeftoverTempFiles: (fileId) => call("list_leftover_temp_files", { fileId }),
   removeLeftoverTempFiles: (fileId) => call("remove_leftover_temp_files", { fileId }),

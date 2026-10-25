@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { APP_VERSION } from "../lib/about";
 import { useApp } from "../lib/store/app-store";
 import { receiveDiagnostics, useDocs } from "../lib/store/doc-store";
 import { bootApp, sleep, type Mock } from "../test/harness";
@@ -65,15 +66,18 @@ describe("save bar (DD2, DD6)", () => {
   it("is footer-only, disabled with a visible reason, and saves with undo", async () => {
     const user = userEvent.setup();
     await bootApp({ open: "feature-flags.json" });
-    const save = screen.getByRole("button", { name: "Save changes" });
-    expect(save).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review changes" })).not.toBeInTheDocument();
     expect(status()).toHaveTextContent("No unsaved changes");
+    expect(screen.getByTestId("save-bar")).toHaveAttribute("data-savebar", "quiet");
     // header carries no save/review buttons
     expect(within(screen.getByRole("banner")).queryByRole("button", { name: /Save|Review/ })).toBeNull();
     expect(within(await screen.findByLabelText("File header")).queryByRole("button", { name: /Save|Review/ })).toBeNull();
 
     await toggleDebug(user);
     await waitFor(() => expect(status()).toHaveTextContent("Ready · 1 pending change"));
+    expect(screen.getByTestId("save-bar")).toHaveAttribute("data-savebar", "open");
+    const save = screen.getByRole("button", { name: "Save changes" });
     await user.click(save);
     await waitFor(() => expect(status()).toHaveTextContent(/Saved \d\d:\d\d · backup created/));
     expect(within(status()).getByRole("button", { name: "Undo save" })).toBeInTheDocument();
@@ -82,6 +86,20 @@ describe("save bar (DD2, DD6)", () => {
     await user.click(within(status()).getByRole("button", { name: "Undo save" }));
     await waitFor(() => expect(status()).toHaveTextContent(/Restored/));
     await waitFor(() => expect(screen.getByRole("switch", { name: "Debug" })).not.toBeChecked());
+  });
+
+  it("show, previous and next scroll to each pending change", async () => {
+    const user = userEvent.setup();
+    await bootApp({ open: "feature-flags.json" });
+    await toggleDebug(user);
+    await user.click(screen.getByRole("button", { name: "Show pending change" }));
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Debug" })).toHaveFocus());
+    await setField(user, "Display name", "Renamed");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Previous change" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Next change" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Display name" })).toHaveFocus());
+    await user.click(screen.getByRole("button", { name: "Previous change" }));
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Debug" })).toHaveFocus());
   });
 
   it("shows the spinner only after 150 ms", async () => {
@@ -163,10 +181,16 @@ describe("review changes (DD15)", () => {
     expect(diff.querySelectorAll('[data-kind="added"]')).toHaveLength(1);
     expect(diff.querySelectorAll('[data-kind="removed"]')).toHaveLength(1);
     await user.click(within(dialog).getByRole("tab", { name: /Changes/ }));
-    await user.click(within(dialog).getByRole("button", { name: /Revert Debug/ }));
-    await waitFor(() => expect(within(dialog).getByText("No unsaved changes")).toBeInTheDocument());
+    await user.click(within(dialog).getByRole("button", { name: "Show $.debug" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Debug" })).toHaveFocus());
+
+    await user.click(screen.getByRole("button", { name: "Review changes" }));
+    const again = await screen.findByRole("dialog");
+    await user.click(within(again).getByRole("button", { name: /Revert Debug/ }));
+    await waitFor(() => expect(within(again).getByText("No unsaved changes")).toBeInTheDocument());
     expect(doc().dirtyCount).toBe(0);
-    expect(within(dialog).getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(within(again).getByRole("button", { name: "Save changes" })).toBeDisabled();
   });
 
   it("masks secret values in the text diff until revealed", async () => {
@@ -282,7 +306,8 @@ describe("documents, diagnostics and files", () => {
     await user.click(within(view).getByRole("button", { name: /Reveal masked value/ }));
     await waitFor(() => expect(view).toHaveTextContent("sk-test-0000000000000000"));
     expect(screen.queryByRole("toolbar", { name: "Form tools" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(status()).toHaveTextContent("No unsaved changes");
   });
 
   it("duplicate keys highlight every occurrence", async () => {
@@ -330,7 +355,8 @@ describe("documents, diagnostics and files", () => {
     await bootApp({ flags: ["seeded", "readonly"], open: "Managed settings" });
     expect(await screen.findByText(/Managed settings are read-only/)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Default model" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(status()).toHaveTextContent("No unsaved changes");
   });
 
   it("project-local files carry the version-control note and the R1 repo-root hint", async () => {
@@ -344,11 +370,27 @@ describe("documents, diagnostics and files", () => {
     await bootApp({ open: "deep.json" });
     await screen.findByRole("button", { name: "A" });
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    const box = await screen.findByRole("combobox", { name: "Search settings in this file" });
+    const box = await screen.findByRole("combobox", { name: "Go to setting" });
+    expect(screen.getByText("Enter jumps to the field. It does not hide the others.")).toBeInTheDocument();
     await user.type(box, "leaf");
     await user.keyboard("{Enter}");
     await waitFor(() => expect(doc().drillRoot).not.toBe(""));
     expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
+  });
+
+  it("About is in the title bar and opens version, author and altafino.com", async () => {
+    const user = userEvent.setup();
+    const { m } = await bootApp({ flags: [] });
+    await user.click(await screen.findByRole("button", { name: "About" }));
+    const dialog = await screen.findByRole("dialog", { name: "About" });
+    expect(within(dialog).getByText("ConfigDeck")).toBeInTheDocument();
+    expect(within(dialog).getByText(`Version ${APP_VERSION}`)).toBeInTheDocument();
+    expect(within(dialog).getByText("Stefan")).toBeInTheDocument();
+    expect(within(dialog).getByText("Apache License 2.0")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "altafino.com" }));
+    expect(m.controls.aboutLinks()).toEqual(["site"]);
+    await user.click(within(dialog).getByRole("button", { name: "Release notes" }));
+    expect(m.controls.aboutLinks()).toEqual(["site", "releases"]);
   });
 
   it("Settings: shortcuts list, density and theme apply", async () => {

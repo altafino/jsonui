@@ -56,6 +56,8 @@ export interface Api {
   clearSchema(fileId: string): Promise<ManagedDocument>;
   revealManagedFile(fileId: string): Promise<void>;
   openInExternalEditor(fileId: string): Promise<void>;
+  /** `site` opens altafino.com. `releases` opens the GitHub releases page. */
+  openAboutLink(which: "site" | "releases"): Promise<void>;
   revealMaskedValue(fileId: string, maskId: number): Promise<string>;
   listLeftoverTempFiles(fileId: string): Promise<string[]>;
   removeLeftoverTempFiles(fileId: string): Promise<number>;
@@ -87,6 +89,8 @@ export interface MockControls {
   setSaveDelay(ms: number): void;
   /** Registry id of a file by display name (tests only). */
   idOf(displayName: string): string | undefined;
+  /** About-dialog links opened in this session, oldest first. */
+  aboutLinks(): readonly ("site" | "releases")[];
   reset(): void;
 }
 

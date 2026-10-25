@@ -5,6 +5,15 @@ All notable changes to ConfigDeck are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-25
+
+### Changed
+
+- **Go to setting** (Ctrl+K) jumps to a field and leaves the rest of the form visible. **Filter this form** hides the others and shows how many fields match.
+- The pending-change count in the footer jumps to the changed field. Previous and next appear when more than one field changed. Clicking a path in Review changes does the same.
+- Remove is a trash icon, shown when the row is hovered or focused, so it is not mistaken for clearing the value.
+- The save bar shrinks to one line when there is nothing to save. Review and Save return as soon as there is a pending change, and stay up after a successful save so Undo save is available.
+
 ## [0.1.0] - 2026-10-24
 
 ### Added

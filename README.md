@@ -15,6 +15,20 @@ those formats works, and a JSON Schema can describe any of them.
 
 Built with Tauri 2 (Rust core) and React + TypeScript.
 
+## Screenshots
+
+![A JSON file open as a form, with one pending change highlighted](docs/screenshots/workspace-1366-light.png)
+
+A JSON file as a form. The changed field is marked, and the rest of the file stays as it was.
+
+![Claude Code project settings, with nested hooks and masked secret values](docs/screenshots/nested-arrays-1366-light.png)
+
+Claude Code settings, including nested lists. Secret values stay masked until revealed.
+
+![Review dialog showing Debug changing from false to true before save](docs/screenshots/review-1366-light.png)
+
+Review before save. A backup of the current file is written first.
+
 ## Install on Manjaro / Arch
 
 From this checkout:
