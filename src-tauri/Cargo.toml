@@ -1,6 +1,6 @@
 [package]
 name = "configdeck"
-version = "0.1.0"
+version = "0.1.1"
 license = "Apache-2.0"
 description = "Edit JSON, JSONC, YAML and TOML configuration as forms"
 authors = ["Stefan <st.wuthrich@gmail.com>"]

@@ -3,7 +3,7 @@
 # users do not compile Rust. Conflicts with the source package `configdeck`.
 
 pkgname=configdeck-bin
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Local-first form editor for JSON, JSONC, YAML and TOML configs'
 arch=('x86_64')

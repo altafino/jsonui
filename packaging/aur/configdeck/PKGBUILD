@@ -3,7 +3,7 @@
 # can download the tag archive (see scripts/aur-publish.sh).
 
 pkgname=configdeck
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Local-first form editor for JSON, JSONC, YAML and TOML configs'
 arch=('x86_64' 'aarch64')
