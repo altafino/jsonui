@@ -3,6 +3,7 @@ import { Redo2, Search, Undo2, X } from "lucide-react";
 import { FIELD_SEARCH_ID } from "../../lib/shortcuts";
 import { drillTarget } from "./drill";
 import { redo, setChangedOnly, setQuery, setSelecting, setShowAdvanced, undo, useDocs } from "../../lib/store/doc-store";
+import { countQueryMatches } from "../../lib/store/visibility";
 import { AddSettingMenu } from "../fields/Containers";
 import { FieldEnvContext } from "../fields/context";
 import { IconButton } from "../ui/Button";
@@ -26,6 +27,7 @@ export function Toolbar({ fileId }: { fileId: string }) {
   if (!doc) return null;
   const frozen = doc.readOnly || doc.conflict || !doc.editable;
   const root = drillTarget(doc);
+  const counts = countQueryMatches(doc.nodes, doc.query, doc.hints);
   return (
     <div role="toolbar" aria-label="Form tools" className="flex flex-wrap items-center gap-2 border-y border-line px-4 py-2.5">
       <div className="relative min-w-[200px] max-w-sm flex-1">
@@ -34,13 +36,19 @@ export function Toolbar({ fileId }: { fileId: string }) {
           id={FIELD_SEARCH_ID}
           type="search"
           role="searchbox"
-          aria-label="Search fields"
-          placeholder="Search fields"
+          aria-label="Filter this form"
+          placeholder="Filter this form"
           value={doc.query}
+          aria-describedby={counts ? "filter-count" : undefined}
           onChange={(e) => setQuery(fileId, e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && doc.query && (e.stopPropagation(), setQuery(fileId, ""))}
-          className="h-9 w-full rounded-md border border-ctl bg-transparent pl-9 pr-8 text-[0.9375rem] placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+          className={clsx("h-9 w-full rounded-md border border-ctl bg-transparent pl-9 text-[0.9375rem] placeholder:text-muted [&::-webkit-search-cancel-button]:hidden", counts ? "pr-28" : doc.query ? "pr-8" : "pr-3")}
         />
+        {counts ? (
+          <span id="filter-count" data-testid="filter-count" className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 text-xs text-muted tabular-nums">
+            {counts.matches} of {counts.total}
+          </span>
+        ) : null}
         {doc.query ? (
           <button type="button" aria-label="Clear search" onClick={() => setQuery(fileId, "")} className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted hover:bg-hover hover:text-fg">
             <X className="size-3.5" aria-hidden />

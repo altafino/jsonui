@@ -14,10 +14,12 @@ const VERB: Record<SemanticChange["kind"], string> = { added: "Added", removed: 
 
 /** One line per change: friendly path, old → new, optional Revert and "both changed" marker (DD15, DD16). */
 export function ChangeList({
-  changes, onRevert, overlapping, empty, label,
+  changes, onRevert, onReveal, overlapping, empty, label,
 }: {
   changes: SemanticChange[];
   onRevert?: (opIndex: number) => void;
+  /** Scrolls the open form to this change. Omit in dialogs that are not editing the draft. */
+  onReveal?: (pointer: string) => void;
   overlapping?: Set<string>;
   empty: string;
   label: string;
@@ -33,7 +35,13 @@ export function ChangeList({
               {friendlyPath(c.pointer)}
             </p>
             <p className="mono flex flex-wrap items-center gap-x-2 text-[0.8125rem] text-muted">
-              <span title={c.pointer}>{displayPath(c.pointer)}</span>
+              {onReveal ? (
+                <button type="button" title={c.pointer} aria-label={`Show ${displayPath(c.pointer)}`} onClick={() => onReveal(c.pointer)} className="underline underline-offset-2 hover:text-fg">
+                  {displayPath(c.pointer)}
+                </button>
+              ) : (
+                <span title={c.pointer}>{displayPath(c.pointer)}</span>
+              )}
               {c.kind !== "added" && c.oldText !== null ? <span className="text-fg">{c.oldText}</span> : null}
               {c.kind === "changed" || c.kind === "renamed" || c.kind === "moved" ? <ArrowRight className="size-3" aria-label="to" /> : null}
               {c.kind !== "removed" && c.newText !== null ? <span className="text-fg">{c.newText}</span> : null}

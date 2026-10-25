@@ -39,7 +39,8 @@ test("invalid file shows the source view with a masked secret", async ({ page })
   await expect(view.getByRole("alert")).toContainText("Expected a comma");
   await expect(view).not.toContainText("sk-test-0000000000000000");
   await expect(view).toContainText("••••");
-  await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+  await expect(saveStatus(page)).toContainText("No unsaved changes");
   await view.getByRole("button", { name: /Reveal masked value/ }).click();
   await expect(view).toContainText("sk-test-0000000000000000");
 });
@@ -80,7 +81,7 @@ test("keyboard-only edit and save (A27)", async ({ page }) => {
   await launch(page, "seeded");
   await openFile(page, "feature-flags.json");
   await page.keyboard.press("Control+f");
-  await expect(page.getByRole("searchbox", { name: "Search fields" })).toBeFocused();
+  await expect(page.getByRole("searchbox", { name: "Filter this form" })).toBeFocused();
   await page.keyboard.type("debug");
 
   // Tab to the switch; focus must be visibly ringed.

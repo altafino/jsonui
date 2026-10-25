@@ -40,8 +40,8 @@ export function matchShortcut(e: KeyLike, mac = isMac()): ShortcutAction | null 
 }
 
 export const SHORTCUT_LIST: { keys: string; what: string }[] = [
-  { keys: "Mod+K", what: "Search fields in this file" },
-  { keys: "Mod+F", what: "Focus the field search" },
+  { keys: "Mod+K", what: "Go to a setting in this file" },
+  { keys: "Mod+F", what: "Focus the form filter" },
   { keys: "Mod+S", what: "Save changes" },
   { keys: "Mod+Z", what: "Undo (when not typing in a field)" },
   { keys: "Mod+Shift+Z", what: "Redo (when not typing in a field)" },

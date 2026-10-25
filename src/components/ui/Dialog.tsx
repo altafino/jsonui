@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 /** Modal dialog: min(720px, 90vw), 8px radius, shadow only here (DD9, DD12). Esc closes. */
 export function Dialog({
-  open, onClose, title, description, children, footer, wide, labelledByExtra,
+  open, onClose, title, description, children, footer, wide, labelledByExtra, onCloseAutoFocus,
 }: {
   open: boolean;
   onClose: () => void;
@@ -15,6 +15,8 @@ export function Dialog({
   footer?: ReactNode;
   wide?: boolean;
   labelledByExtra?: string;
+  /** When set, replaces Radix returning focus to the control that opened the dialog. */
+  onCloseAutoFocus?: (event: Event) => void;
 }) {
   return (
     <RD.Root open={open} onOpenChange={(o) => !o && onClose()}>
@@ -22,6 +24,7 @@ export function Dialog({
         <RD.Overlay className="fixed inset-0 z-40" style={{ background: "var(--overlay)" }} />
         <RD.Content
           aria-describedby={description ? undefined : undefined}
+          onCloseAutoFocus={onCloseAutoFocus}
           data-testid="dialog"
           className={clsx(
             "cd-popover fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col max-h-[85vh] rounded-lg border border-line bg-sidebar text-fg",
