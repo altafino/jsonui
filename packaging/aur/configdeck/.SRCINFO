@@ -25,6 +25,6 @@ pkgbase = configdeck
 	options = !lto
 	options = !debug
 	source = configdeck-0.1.1.tar.gz::https://github.com/altafino/jsonui/archive/refs/tags/v0.1.1.tar.gz
-	sha256sums = SKIP
+	sha256sums = e97d4f3fd0c89f1b3d4fb7bc1ab1c3eddf170cfdf54952074f65ee2d0fca66b3
 
 pkgname = configdeck

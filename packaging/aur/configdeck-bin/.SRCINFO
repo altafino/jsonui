@@ -27,6 +27,6 @@ pkgbase = configdeck-bin
 	sha256sums = 027970942e8ee637c83f011a4124d0d7fda1856046b2fdc2d788a2f9bc5b30f6
 	sha256sums = cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
 	source_x86_64 = ConfigDeck_0.1.1_amd64.deb::https://github.com/altafino/jsonui/releases/download/v0.1.1/ConfigDeck_0.1.1_amd64.deb
-	sha256sums_x86_64 = SKIP
+	sha256sums_x86_64 = 1944502f3c753b957df87b680d4cb3e8e2bcaf8a3763750a61082fe43ba52b04
 
 pkgname = configdeck-bin

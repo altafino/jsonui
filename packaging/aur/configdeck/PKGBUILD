@@ -45,7 +45,7 @@ if [[ -n ${CONFIGDECK_LOCAL_SHA256-} ]]; then
 else
 	source=("${_tarball}::https://github.com/altafino/jsonui/archive/refs/tags/v${pkgver}.tar.gz")
 	# scripts/aur-publish.sh replaces SKIP with the tag tarball checksum.
-	sha256sums=('SKIP')
+	sha256sums=('e97d4f3fd0c89f1b3d4fb7bc1ab1c3eddf170cfdf54952074f65ee2d0fca66b3')
 fi
 
 _build_env() {
