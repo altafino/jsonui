@@ -3,7 +3,7 @@ import { formatKeys } from "../../lib/shortcuts";
 import { useApp } from "../../lib/store/app-store";
 import { IconButton } from "../ui/Button";
 
-/** Banner landmark: sidebar toggle, wordmark, command search (this file only; workspace search is P1), settings. */
+/** Banner landmark: sidebar toggle, wordmark, command search (this file only), About, settings. */
 export function TitleBar() {
   const openDialog = useApp((s) => s.openDialog);
   const toggleSidebar = useApp((s) => s.toggleSidebar);
@@ -27,6 +27,9 @@ export function TitleBar() {
           <kbd className="mono text-[0.8125rem]">{formatKeys("Mod+K")}</kbd>
         </button> : null}
       </div>
+      <button type="button" onClick={() => openDialog({ kind: "about" })} className="h-9 shrink-0 rounded-md px-3 text-[0.9375rem] hover:bg-hover">
+        About
+      </button>
       <IconButton label="Settings" className="border-transparent" onClick={() => openDialog({ kind: "settings" })}>
         <Settings className="size-5" aria-hidden />
       </IconButton>

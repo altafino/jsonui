@@ -8,6 +8,7 @@ import type { Preferences } from "../types/generated/Preferences";
 
 export type Dialog =
   | { kind: "settings"; tab?: "appearance" | "shortcuts" | "files" }
+  | { kind: "about" }
   | { kind: "history"; fileId: string }
   | { kind: "review"; fileId: string }
   | { kind: "conflict"; fileId: string }

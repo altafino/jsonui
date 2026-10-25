@@ -1,5 +1,6 @@
 import { useApp } from "../../lib/store/app-store";
 import { ReviewDialog } from "../diff/ReviewDialog";
+import { AboutDialog } from "./AboutDialog";
 import { AddSettingDialog } from "./AddSettingDialog";
 import { CommandSearchDialog } from "./CommandSearchDialog";
 import { ConflictDialog } from "./ConflictDialog";
@@ -14,6 +15,7 @@ export function DialogHost() {
   if (!d) return null;
   switch (d.kind) {
     case "settings": return <SettingsDialog tab={d.tab} />;
+    case "about": return <AboutDialog />;
     case "history": return <HistoryDialog fileId={d.fileId} />;
     case "review": return <ReviewDialog fileId={d.fileId} />;
     case "conflict": return <ConflictDialog fileId={d.fileId} />;
@@ -25,5 +27,9 @@ export function DialogHost() {
     case "reload": return <ReloadDialog fileId={d.fileId} />;
     case "command": return <CommandSearchDialog fileId={useApp.getState().activeFileId ?? ""} />;
     case "addSetting": return <AddSettingDialog fileId={d.fileId} parent={d.parent} name={d.name} />;
+    default: {
+      const unreachable: never = d;
+      return unreachable;
+    }
   }
 }

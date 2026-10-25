@@ -78,6 +78,7 @@ export function createMockBackend(options: MockOptions = {}) {
   const opens = new Map<string, Open>();
   const backups = new Map<string, { entry: BackupEntry; text: string }[]>();
   let prefs: Preferences = { ...DEFAULT_PREFS };
+  const openedAbout: ("site" | "releases")[] = [];
   const listeners = new Map<string, Set<(p: never) => void>>();
 
   const emit = <K extends keyof EventMap>(event: K, payload: EventMap[K]) => listeners.get(event)?.forEach((h) => (h as (p: EventMap[K]) => void)(payload));
@@ -643,6 +644,9 @@ export function createMockBackend(options: MockOptions = {}) {
     },
     async revealManagedFile() {},
     async openInExternalEditor() {},
+    async openAboutLink(which: "site" | "releases") {
+      openedAbout.push(which);
+    },
     async revealMaskedValue(fileId, maskId) {
       const v = openOf(fileId).masks.get(maskId);
       if (v === undefined) throw coreError("NOT_FOUND", "Masked value not found.");
@@ -700,12 +704,16 @@ export function createMockBackend(options: MockOptions = {}) {
     idOf(displayName) {
       return registry.find((d) => d.displayName === displayName)?.id;
     },
+    aboutLinks() {
+      return openedAbout;
+    },
     reset() {
       registry = [];
       disks.clear();
       opens.clear();
       backups.clear();
       prefs = { ...DEFAULT_PREFS };
+      openedAbout.length = 0;
     },
   };
 

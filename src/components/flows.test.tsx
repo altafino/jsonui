@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { APP_VERSION } from "../lib/about";
 import { useApp } from "../lib/store/app-store";
 import { receiveDiagnostics, useDocs } from "../lib/store/doc-store";
 import { bootApp, sleep, type Mock } from "../test/harness";
@@ -375,6 +376,21 @@ describe("documents, diagnostics and files", () => {
     await user.keyboard("{Enter}");
     await waitFor(() => expect(doc().drillRoot).not.toBe(""));
     expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
+  });
+
+  it("About is in the title bar and opens version, author and altafino.com", async () => {
+    const user = userEvent.setup();
+    const { m } = await bootApp({ flags: [] });
+    await user.click(await screen.findByRole("button", { name: "About" }));
+    const dialog = await screen.findByRole("dialog", { name: "About" });
+    expect(within(dialog).getByText("ConfigDeck")).toBeInTheDocument();
+    expect(within(dialog).getByText(`Version ${APP_VERSION}`)).toBeInTheDocument();
+    expect(within(dialog).getByText("Stefan")).toBeInTheDocument();
+    expect(within(dialog).getByText("Apache License 2.0")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "altafino.com" }));
+    expect(m.controls.aboutLinks()).toEqual(["site"]);
+    await user.click(within(dialog).getByRole("button", { name: "Release notes" }));
+    expect(m.controls.aboutLinks()).toEqual(["site", "releases"]);
   });
 
   it("Settings: shortcuts list, density and theme apply", async () => {
